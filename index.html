@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KVM Classes - Student Management System</title>
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="CSS/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
         <div id="authSection" class="auth-container" style="display: none;">
             <div class="auth-card">
                 <div class="auth-header">
-                    <img src="../logo.jpg" alt="KVM Classes Logo" class="auth-logo">
+                    <img src="logo.jpg" alt="KVM Classes Logo" class="auth-logo">
                     <h2>KVM Classes</h2>
                     <p class="auth-subtitle">Student Management System</p>
                     <p class="auth-description">Administrator Access Required</p>
@@ -54,7 +54,7 @@
         <div id="mainApp" style="display: none;">
             <header>
                 <div class="logo-container">
-                    <img src="../logo.jpg" alt="KVM Classes Logo" class="logo">
+                    <img src="logo.jpg" alt="KVM Classes Logo" class="logo">
                     <div class="school-info">
                         <h1><i class="fas fa-graduation-cap"></i>KVM Classes</h1>
                         <p class="tagline">Goh Aurangabad - Student Management System</p>
@@ -76,114 +76,7 @@
                     <div id="studentDetail"></div>
                     
                     <div id="addStudentForm" style="display: none;">
-                        <h3><i class="fas fa-user-plus"></i> Add New Student</h3>
-                        <form id="studentForm">
-                            <div class="form-field">
-                                <label for="studentName">Student Name *</label>
-                                <input type="text" id="studentName" required>
-                            </div>
-                            
-                            <div class="form-field">
-                                <label for="fatherName">Father's Name</label>
-                                <input type="text" id="fatherName">
-                            </div>
-                            
-                            <div class="form-field">
-                                <label for="mobile">Mobile Number</label>
-                                <input type="tel" id="mobile">
-                            </div>
-                            
-                            <div class="form-field">
-                                <label for="roll">Roll Number *</label>
-                                <input type="number" id="roll" required>
-                            </div>
-                            
-                            <div class="form-field">
-                                <label for="age">Age *</label>
-                                <input type="number" id="age" required>
-                            </div>
-                            
-                            <div class="form-field">
-                                <label for="address">Address</label>
-                                <textarea id="address" rows="3"></textarea>
-                            </div>
-                            
-                            <div class="form-field">
-                                <label for="photo">Photo URL</label>
-                                <input type="url" id="photo" placeholder="https://example.com/photo.jpg">
-                            </div>
-
-                            <!-- Fee Section -->
-                            <div class="fee-form-section">
-                                <h4>Monthly Fee Structure</h4>
-                                <div class="monthly-fee-grid">
-                                    <div class="fee-input-group">
-                                        <label for="janFee">January</label>
-                                        <input type="number" id="janFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="febFee">February</label>
-                                        <input type="number" id="febFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="marFee">March</label>
-                                        <input type="number" id="marFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="aprFee">April</label>
-                                        <input type="number" id="aprFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="mayFee">May</label>
-                                        <input type="number" id="mayFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="junFee">June</label>
-                                        <input type="number" id="junFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="julFee">July</label>
-                                        <input type="number" id="julFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="augFee">August</label>
-                                        <input type="number" id="augFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="sepFee">September</label>
-                                        <input type="number" id="sepFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="octFee">October</label>
-                                        <input type="number" id="octFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="novFee">November</label>
-                                        <input type="number" id="novFee" value="0" min="0">
-                                    </div>
-                                    <div class="fee-input-group">
-                                        <label for="decFee">December</label>
-                                        <input type="number" id="decFee" value="0" min="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="form-field">
-                                    <label for="previousDues">Previous Year's Dues</label>
-                                    <input type="number" id="previousDues" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="action-buttons">
-                                <button type="submit" class="button button-primary">
-                                    <i class="fas fa-save"></i>
-                                    <span id="saveButtonText">Add Student</span>
-                                </button>
-                                <button type="button" class="button button-warning" onclick="hideAddStudentForm()">
-                                    <i class="fas fa-times"></i>
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
+                        <!-- Form will be dynamically generated -->
                     </div>
                 </section>
             </div>
@@ -192,7 +85,7 @@
         <!-- Loading Screen -->
         <div id="loadingScreen" class="loading-screen">
             <div class="loading-content">
-                <img src="../logo.jpg" alt="KVM Classes" class="loading-logo">
+                <img src="logo.jpg" alt="KVM Classes" class="loading-logo">
                 <div class="loading-spinner">
                     <i class="fas fa-spinner fa-spin"></i>
                 </div>
@@ -221,6 +114,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js"></script>
     
     <!-- Your JavaScript -->
-    <script type="module" src="../JS/script.js"></script>
+    <script type="module" src="JS/script.js"></script>
 </body>
-</html>
+</html>  
