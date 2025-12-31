@@ -132,41 +132,6 @@ function getStudentPhotoUrl(student) {
 }
 
 // ======================
-// DEBUG FUNCTION
-// ======================
-
-window.testPhotoUrl = async function(studentId) {
-    try {
-        const studentRef = doc(db, "students", studentId);
-        const studentSnap = await getDoc(studentRef);
-        
-        if (studentSnap.exists()) {
-            const student = studentSnap.data();
-            console.log("=== PHOTO DEBUG INFO ===");
-            console.log("Student:", student.name);
-            console.log("Photo field value:", student.photo);
-            console.log("Photo field type:", typeof student.photo);
-            console.log("Optimized URL:", optimizeDrivePhotoUrl(student.photo));
-            console.log("Default avatar:", getDefaultAvatar(student.name));
-            
-            // Test if the photo URL is accessible
-            if (student.photo) {
-                const testImg = new Image();
-                testImg.onload = function() {
-                    console.log("✅ Photo URL is accessible");
-                };
-                testImg.onerror = function() {
-                    console.log("❌ Photo URL failed to load");
-                };
-                testImg.src = optimizeDrivePhotoUrl(student.photo);
-            }
-        }
-    } catch (error) {
-        console.error("Debug error:", error);
-    }
-};
-
-// ======================
 // AUTHENTICATION STATE MANAGEMENT
 // ======================
 
@@ -570,11 +535,6 @@ async function loadStudentDetail(studentId) {
                         <button class="button button-danger" onclick="deleteStudent('${studentId}', '${student.name}')">
                             <i class="fas fa-trash"></i>
                             Delete Student
-                        </button>
-                        <button class="button button-secondary" onclick="testPhotoUrl('${studentId}')" 
-                                title="Debug photo issues">
-                            <i class="fas fa-camera"></i>
-                            Debug Photo
                         </button>
                         <button class="button button-primary" onclick="loadStudents('${editingClass}')">
                             <i class="fas fa-arrow-left"></i>
