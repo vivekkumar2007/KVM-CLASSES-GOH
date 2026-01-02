@@ -278,7 +278,7 @@ function getAuthErrorMessage(errorCode) {
 
 function renderClasses() {
     console.log("Rendering classes...");
-    
+    /*
     studentList.innerHTML = `
         <div class="empty-state">
             <i class="fas fa-school"></i>
@@ -286,7 +286,7 @@ function renderClasses() {
             <p>Please select a class from below to view students</p>
         </div>
     `;
-    
+    */
     studentDetail.innerHTML = '';
     hideAddStudentForm();
     
