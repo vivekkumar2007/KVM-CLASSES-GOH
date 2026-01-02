@@ -281,9 +281,11 @@ function renderClasses() {
 
     studentList.innerHTML = `
         <div class="empty-state">
-           /* <i class="fas fa-school"></i>
+        <!--
+           <i class="fas fa-school"></i>
             <h3>Select a Class</h3>
-            <p>Please select a class from above to view students</p>*/
+            <p>Please select a class from above to view students</p>
+        -->
         </div>
     `;
     studentDetail.innerHTML = '';
