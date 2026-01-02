@@ -1670,6 +1670,7 @@ select.form-control:focus {
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--color-card-border);
     margin-top: var(--space-32);
+    margin-bottom: var(--space-32);
 }
 
 .add-student-home-section h2 {
