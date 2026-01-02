@@ -293,6 +293,14 @@ function renderClasses() {
     classButtons.style.display = 'block';
     
     classButtons.innerHTML = `
+        <!-- Add Student Button at Home -->
+        <div class="add-student-home-section">
+            <h2><i class="fas fa-user-plus"></i> Add New Student</h2>
+            <button class='button button-primary' onclick='showAddStudentForm()'>
+                <i class="fas fa-plus"></i> Add Student
+            </button>
+        </div>
+    
         <h2><i class="fas fa-school"></i> Select Class</h2>
         <div class="card-grid">
             ${CLASSES.map(className => `
@@ -303,15 +311,7 @@ function renderClasses() {
                 </div>
             `).join('')}
         </div>
-        
-        <!-- Add Student Button at Home -->
-        <div class="add-student-home-section">
-            <h2><i class="fas fa-user-plus"></i> Add New Student</h2>
-            <button class='button button-primary' onclick='showAddStudentForm()'>
-                <i class="fas fa-plus"></i> Add Student
-            </button>
-        </div>
-    `;
+        `;
 }
 
 async function loadStudents(className) {
