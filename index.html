@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- Authentication Section -->
+        <!-- Authentication Section (shown when not logged in) -->
         <div id="authSection" class="auth-container" style="display: none;">
             <div class="auth-card">
                 <div class="auth-header">
@@ -18,23 +18,39 @@
                     <p class="auth-subtitle">Student Management System</p>
                     <p class="auth-description">Administrator Access Required</p>
                 </div>
+                
                 <form id="loginForm" class="auth-form">
                     <div class="form-field">
-                        <label for="adminEmail"><i class="fas fa-envelope"></i> Administrator Email</label>
+                        <label for="adminEmail">
+                            <i class="fas fa-envelope"></i>
+                            Administrator Email
+                        </label>
                         <input type="email" id="adminEmail" placeholder="Enter your email" required>
                     </div>
+                    
                     <div class="form-field">
-                        <label for="adminPassword"><i class="fas fa-lock"></i> Password</label>
+                        <label for="adminPassword">
+                            <i class="fas fa-lock"></i>
+                            Password
+                        </label>
                         <input type="password" id="adminPassword" autocomplete="on" placeholder="Enter Password" required>
                     </div>
-                    <button type="submit" class="button button-primary auth-button"><i class="fas fa-sign-in-alt"></i> Login to Dashboard</button>
+                    
+                    <button type="submit" class="button button-primary auth-button">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login to Dashboard
+                    </button>
                 </form>
+                
                 <div id="loginError" class="error-message" style="display: none;"></div>
-                <div id="loginLoading" class="loading-message" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Authenticating...</div>
+                <div id="loginLoading" class="loading-message" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Authenticating...
+                </div>
             </div>
         </div>
 
-        <!-- Main Application -->
+        <!-- Main Application (shown when logged in) -->
         <div id="mainApp" style="display: none;">
             <header>
                 <div class="logo-container">
@@ -43,17 +59,25 @@
                         <h1><i class="fas fa-graduation-cap"></i>KVM Classes</h1>
                         <p class="tagline">Goh Aurangabad - Student Management System</p>
                     </div>
-                    <button id="logoutButton" class="button button-warning logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                    <button id="logoutButton" class="button button-warning logout-btn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
                 </div>
             </header>
+
             <div class="content-wrapper">
                 <section class="student-section">
                     <div id="class-buttons"></div>
                     <div id="studentList"></div>
                 </section>
+
                 <section class="form-container">
                     <div id="studentDetail"></div>
-                    <div id="addStudentForm" style="display: none;"></div>
+                    
+                    <div id="addStudentForm" style="display: none;">
+                        <!-- Form will be dynamically generated -->
+                    </div>
                 </section>
             </div>
         </div>
@@ -62,19 +86,24 @@
         <div id="loadingScreen" class="loading-screen">
             <div class="loading-content">
                 <img src="logo.jpg" alt="KVM Classes" class="loading-logo">
-                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
-                <p>Loading KVM Classes...</p>
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p id="loadingMessage">Loading KVM Classes...</p>
             </div>
         </div>
 
-        <!-- Non-Admin Message -->
+        <!-- Non-Admin User Message -->
         <div id="nonAdminMessage" class="non-admin-message" style="display: none;">
             <div class="message-card">
                 <i class="fas fa-shield-alt"></i>
                 <h2>Access Restricted</h2>
                 <p>You are logged in but don't have administrator privileges for this system.</p>
                 <p>Please contact your system administrator for access.</p>
-                <button class="button button-warning" onclick="signOut()"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+                <button class="button button-warning" onclick="signOut()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sign Out
+                </button>
             </div>
         </div>
     </div>
@@ -85,7 +114,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js"></script>
     
     <!-- html2pdf library for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     
     <!-- Your JavaScript -->
     <script type="module" src="JS/script.js"></script>
