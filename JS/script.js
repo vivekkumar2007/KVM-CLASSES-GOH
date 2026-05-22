@@ -40,32 +40,25 @@ const studentList = document.getElementById("studentList");
 const studentDetail = document.getElementById("studentDetail");
 const addStudentForm = document.getElementById("addStudentForm");
 
-// Updated class list
+// Class list
 const CLASSES = [
     "Class 3 and 4",
-    "Class 5", 
-    "Class 6", 
-    "Class 7", 
-    "Class 8",
-    "Class 9",
-    "Class 10"
+    "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10"
 ];
 
-// Months for fee structure
+// Months
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const CURRENT_YEAR = new Date().getFullYear();
 const NEXT_YEAR = CURRENT_YEAR + 1;
 
 // ======================
-// LOADING SCREEN FUNCTIONS
+// LOADING FUNCTIONS
 // ======================
 
 function showCustomLoading(message) {
-    const loadingMessageElement = document.getElementById('loadingMessage');
-    if (loadingMessageElement) {
-        loadingMessageElement.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${message}`;
-    }
+    const msgEl = document.getElementById('loadingMessage');
+    if (msgEl) msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${message}`;
     loadingScreen.style.display = 'flex';
 }
 
@@ -74,266 +67,305 @@ function hideLoadingScreen() {
 }
 
 // ======================
-// IMAGE HANDLING FUNCTIONS
+// IMAGE FUNCTIONS
 // ======================
 
-window.handleImageError = function(imgElement, studentName) {
-    imgElement.src = getDefaultAvatar(studentName);
-    imgElement.onerror = null;
+window.handleImageError = function(img, name) {
+    img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=150&bold=true`;
+    img.onerror = null;
 };
 
 function optimizeDrivePhotoUrl(url) {
-    if (!url || typeof url !== 'string' || url.trim() === '') {
-        return '';
-    }
-    let cleanUrl = url.trim();
-    let fileId = null;
-    const pattern1 = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
-    const pattern2 = /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/;
-    if (pattern1.test(cleanUrl)) {
-        fileId = cleanUrl.match(pattern1)[1];
-    } else if (pattern2.test(cleanUrl)) {
-        fileId = cleanUrl.match(pattern2)[1];
-    }
-    if (fileId) {
-        return `https://lh3.googleusercontent.com/d/${fileId}`;
-    }
-    return cleanUrl;
-}
-
-function getDefaultAvatar(name) {
-    if (!name) name = '';
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=150&bold=true`;
+    if (!url) return '';
+    const match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) return `https://lh3.googleusercontent.com/d/${match[1]}`;
+    return url;
 }
 
 function getStudentPhotoUrl(student) {
-    if (!student) return getDefaultAvatar('');
-    if (student.photo && student.photo.trim() !== '') {
-        const optimizedUrl = optimizeDrivePhotoUrl(student.photo.trim());
-        return optimizedUrl || getDefaultAvatar(student.name);
+    if (student?.photo) {
+        const opt = optimizeDrivePhotoUrl(student.photo);
+        if (opt) return opt;
     }
-    return getDefaultAvatar(student.name || '');
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(student?.name || '')}&background=random&color=fff&size=150&bold=true`;
 }
 
 // ======================
-// FEE HELPERS
+// FEE FUNCTIONS
 // ======================
 
 function normalizeMonthlyFees(oldFees) {
-    if (!oldFees) return {};
-    const newFees = {};
-    for (const month of MONTHS) {
-        const val = oldFees[month];
-        if (val === undefined || val === null) {
-            newFees[month] = { amount: 0, paid: true };
-        } else if (typeof val === 'number') {
-            newFees[month] = { amount: val, paid: true };
-        } else if (typeof val === 'object' && val !== null) {
-            newFees[month] = { amount: val.amount || 0, paid: val.paid !== false };
-        } else {
-            newFees[month] = { amount: 0, paid: true };
-        }
+    const result = {};
+    for (const m of MONTHS) {
+        const val = oldFees?.[m];
+        if (typeof val === 'number') result[m] = { amount: val, paid: true };
+        else if (val?.amount !== undefined) result[m] = { amount: val.amount, paid: val.paid !== false };
+        else result[m] = { amount: 0, paid: true };
     }
-    return newFees;
+    return result;
 }
 
 function calculateFeeTotals(monthlyFees) {
-    let totalFee = 0;
-    let totalPaid = 0;
-    for (const month of MONTHS) {
-        const feeObj = monthlyFees[month] || { amount: 0, paid: true };
-        const amount = feeObj.amount || 0;
-        totalFee += amount;
-        if (feeObj.paid) totalPaid += amount;
+    let totalFee = 0, totalPaid = 0;
+    for (const m of MONTHS) {
+        const f = monthlyFees[m] || { amount: 0, paid: true };
+        totalFee += f.amount;
+        if (f.paid) totalPaid += f.amount;
     }
     return { totalFee, totalPaid };
 }
 
 // ======================
-// PDF GENERATION FUNCTION - WORKING VERSION
+// PDF GENERATION - USING BROWSER PRINT (100% RELIABLE)
 // ======================
 
-window.downloadStudentPDF = async function(student) {
-    showCustomLoading("Generating PDF...");
+window.downloadStudentPDF = function(student) {
+    showCustomLoading("Preparing PDF...");
     
-    try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a4');
-        
-        // Calculate fee totals
-        const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
-        const previousYearBill = student.previousYearBill || 0;
-        const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
-        const totalPaid = monthlyPaid + previousYearBill;
-        const balance = totalFee - totalPaid;
-        
-        // Get photo as data URL
-        const photoUrl = getStudentPhotoUrl(student);
-        let photoData = null;
-        
-        // Try to load photo
+    setTimeout(() => {
         try {
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = photoUrl;
-            });
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            photoData = canvas.toDataURL('image/jpeg', 0.7);
-        } catch(e) {
-            console.log("Could not load image, using default");
+            const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
+            const previousYearBill = student.previousYearBill || 0;
+            const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
+            const totalPaid = monthlyPaid + previousYearBill;
+            const balance = totalFee - totalPaid;
+            
+            // Build fee table
+            let feeRows = '';
+            for (let i = 0; i < MONTHS.length; i++) {
+                const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
+                if (f.amount > 0) {
+                    feeRows += `
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 10px;">${MONTH_NAMES[i]}</td>
+                            <td style="padding: 10px; text-align: right;">₹${f.amount}</td>
+                            <td style="padding: 10px; text-align: center;">${f.paid ? '✅ Paid' : '❌ Not Paid'}</td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            if (!feeRows) feeRows = '<tr><td colspan="3" style="padding: 20px; text-align: center;">No fees recorded</td></tr>';
+            
+            // Create print window content
+            const printContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${student.name} - Student Profile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        // Start PDF
-        let y = 20;
-        
-        // Header with photo
-        if (photoData) {
-            doc.addImage(photoData, 'JPEG', 80, y, 50, 50);
-            y += 55;
-        } else {
-            doc.setFontSize(24);
-            doc.setTextColor(31, 79, 94);
-            doc.text(student.name, 105, y + 20, { align: 'center' });
-            y += 30;
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            color: #333;
+            line-height: 1.5;
         }
-        
-        // Student Name
-        doc.setFontSize(20);
-        doc.setTextColor(31, 79, 94);
-        doc.text(student.name, 105, y, { align: 'center' });
-        y += 10;
-        
-        // Class and Roll
-        doc.setFontSize(12);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Class: ${student.className} | Roll No: ${student.roll}`, 105, y, { align: 'center' });
-        y += 15;
-        
-        // Personal Information Section
-        doc.setFontSize(14);
-        doc.setTextColor(31, 79, 94);
-        doc.setFont(undefined, 'bold');
-        doc.text("Personal Information", 20, y);
-        y += 8;
-        
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Father's Name: ${student.fatherName || 'Not specified'}`, 20, y);
-        y += 7;
-        doc.text(`Mobile: ${student.mobile || 'Not specified'}`, 20, y);
-        y += 7;
-        doc.text(`Age: ${student.age || 'Not specified'}`, 20, y);
-        y += 7;
-        doc.text(`Address: ${student.address || 'Not specified'}`, 20, y);
-        y += 15;
-        
-        // Fee Summary Section
-        doc.setFontSize(14);
-        doc.setTextColor(31, 79, 94);
-        doc.setFont(undefined, 'bold');
-        doc.text("Fee Summary", 20, y);
-        y += 10;
-        
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Total Paid: ₹${totalPaid}`, 20, y);
-        doc.text(`Total Fee: ₹${totalFee}`, 120, y);
-        y += 7;
-        doc.text(`Balance: ₹${balance}`, 20, y);
-        y += 15;
-        
-        // Previous Year Bill
-        if (previousYearBill > 0) {
-            doc.setFontSize(14);
-            doc.setTextColor(31, 79, 94);
-            doc.setFont(undefined, 'bold');
-            doc.text("Previous Year Bill", 20, y);
-            y += 8;
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-            doc.setFont(undefined, 'normal');
-            doc.text(`Previous Year's Month Bill: ₹${previousYearBill}`, 20, y);
-            y += 15;
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        
-        // Current Year Fees
-        doc.setFontSize(14);
-        doc.setTextColor(31, 79, 94);
-        doc.setFont(undefined, 'bold');
-        doc.text(`Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})`, 20, y);
-        y += 10;
-        
-        // Monthly fees table
-        let tableData = [];
-        for (let i = 0; i < MONTHS.length; i++) {
-            const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
-            if (f.amount > 0) {
-                tableData.push([
-                    MONTH_NAMES[i],
-                    `₹${f.amount}`,
-                    f.paid ? '✓ Paid' : '✗ Not Paid'
-                ]);
+        .photo {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #1f4f5e;
+        }
+        h1 {
+            color: #1f4f5e;
+            margin: 15px 0 5px;
+            font-size: 24px;
+        }
+        h2 {
+            color: #1f4f5e;
+            border-bottom: 2px solid #1f4f5e;
+            padding-bottom: 8px;
+            margin: 25px 0 15px 0;
+            font-size: 18px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .info-item {
+            display: flex;
+            align-items: baseline;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 120px;
+            color: #555;
+        }
+        .info-value {
+            flex: 1;
+            color: #333;
+        }
+        .fee-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .summary-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .summary-label {
+            font-size: 13px;
+            color: #666;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .summary-amount {
+            font-size: 22px;
+            font-weight: bold;
+        }
+        .amount-paid { color: #10b981; }
+        .amount-due { color: #dc2626; }
+        .fee-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .fee-table th {
+            background: #1f4f5e;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .fee-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #999;
+            font-size: 11px;
+        }
+        .previous-bill {
+            background: #fef3c7;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        @media print {
+            body {
+                padding: 20px;
+            }
+            .no-print {
+                display: none;
             }
         }
-        
-        if (tableData.length > 0) {
-            doc.autoTable({
-                startY: y,
-                head: [['Month', 'Amount', 'Status']],
-                body: tableData,
-                theme: 'striped',
-                headStyles: { fillColor: [31, 79, 94], textColor: 255, fontSize: 11 },
-                bodyStyles: { fontSize: 10 },
-                margin: { left: 20, right: 20 }
-            });
-            y = doc.lastAutoTable.finalY + 10;
-        } else {
-            doc.text("No fees recorded for current year", 20, y);
-            y += 15;
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="${getStudentPhotoUrl(student)}" class="photo" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=random&color=fff&size=150&bold=true'">
+        <h1>${escapeHtml(student.name)}</h1>
+        <p style="margin-top: 8px; color: #666;"><strong>Class:</strong> ${student.className} | <strong>Roll Number:</strong> ${student.roll}</p>
+    </div>
+    
+    <h2>📋 Personal Information</h2>
+    <div class="info-grid">
+        <div class="info-item"><span class="info-label">Father's Name:</span><span class="info-value">${escapeHtml(student.fatherName || 'Not specified')}</span></div>
+        <div class="info-item"><span class="info-label">Mobile:</span><span class="info-value">${escapeHtml(student.mobile || 'Not specified')}</span></div>
+        <div class="info-item"><span class="info-label">Age:</span><span class="info-value">${student.age || 'Not specified'}</span></div>
+        <div class="info-item"><span class="info-label">Address:</span><span class="info-value">${escapeHtml(student.address || 'Not specified')}</span></div>
+    </div>
+    
+    <h2>💰 Fee Summary</h2>
+    <div class="fee-summary">
+        <div class="summary-card">
+            <span class="summary-label">Total Paid</span>
+            <span class="summary-amount amount-paid">₹${totalPaid}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-label">Total Fee</span>
+            <span class="summary-amount">₹${totalFee}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-label">Balance</span>
+            <span class="summary-amount ${balance > 0 ? 'amount-due' : 'amount-paid'}">₹${balance}</span>
+        </div>
+    </div>
+    
+    ${previousYearBill > 0 ? `
+    <div class="previous-bill">
+        <strong>📅 Previous Year Bill:</strong> ₹${previousYearBill}
+    </div>
+    ` : ''}
+    
+    <h2>📆 Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h2>
+    <table class="fee-table">
+        <thead>
+            <tr><th>Month</th><th style="text-align: right;">Amount</th><th style="text-align: center;">Status</th></tr>
+        </thead>
+        <tbody>${feeRows}</tbody>
+    </table>
+    <div style="text-align: right; margin-top: 15px; font-weight: bold;">Total Current Year Fee: ₹${totalFee}</div>
+    
+    <div class="footer">
+        <p>Generated by KVM Classes Student Management System</p>
+        <p>${new Date().toLocaleString()}</p>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 1000);
+            }, 500);
+        };
+    </script>
+</body>
+</html>
+            `;
+            
+            hideLoadingScreen();
+            
+            // Open print window
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            
+        } catch (error) {
+            console.error("Error:", error);
+            hideLoadingScreen();
+            alert("Error preparing PDF. Please try again.");
         }
-        
-        // Total
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text(`Total Current Year Fee: ₹${totalFee}`, 140, y);
-        
-        // Footer
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text(
-                `Generated by KVM Classes - ${new Date().toLocaleString()}`,
-                105,
-                doc.internal.pageSize.height - 10,
-                { align: 'center' }
-            );
-        }
-        
-        // Save PDF
-        doc.save(`${student.name}_profile.pdf`);
-        hideLoadingScreen();
-        alert("PDF downloaded successfully!");
-        
-    } catch (error) {
-        console.error("PDF generation error:", error);
-        alert("Error generating PDF: " + error.message);
-        hideLoadingScreen();
-    }
+    }, 100);
 };
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
 // ======================
-// URL NAVIGATION FUNCTIONS
+// NAVIGATION FUNCTIONS
 // ======================
 
 window.navigateToClass = function(className) {
@@ -349,26 +381,20 @@ window.goBack = function() {
 };
 
 function loadStudentFromURL() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const studentId = urlParams.get('student');
-    const className = urlParams.get('class');
-    if (studentId) {
-        loadSingleStudentPage(studentId);
-        return true;
-    } else if (className) {
-        loadClassPage(className);
-        return true;
-    }
+    const params = new URLSearchParams(window.location.search);
+    const studentId = params.get('student');
+    const className = params.get('class');
+    if (studentId) { loadSingleStudentPage(studentId); return true; }
+    if (className) { loadClassPage(className); return true; }
     return false;
 }
 
 async function loadSingleStudentPage(studentId) {
     showCustomLoading("Loading student details...");
     try {
-        const studentRef = doc(db, "students", studentId);
-        const studentSnap = await getDoc(studentRef);
-        if (studentSnap.exists()) {
-            const student = studentSnap.data();
+        const snap = await getDoc(doc(db, "students", studentId));
+        if (snap.exists()) {
+            const student = snap.data();
             student.id = studentId;
             editingClass = student.className;
             classButtons.style.display = 'none';
@@ -379,15 +405,13 @@ async function loadSingleStudentPage(studentId) {
             hideLoadingScreen();
             showErrorPage("Student not found");
         }
-    } catch (error) {
-        console.error("Error loading student:", error);
+    } catch(e) {
         hideLoadingScreen();
-        showErrorPage("Error loading student profile");
+        showErrorPage("Error loading profile");
     }
 }
 
 function displayFullStudentPage(student) {
-    const photoUrl = getStudentPhotoUrl(student);
     const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
     const previousYearBill = student.previousYearBill || 0;
     const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
@@ -410,55 +434,47 @@ function displayFullStudentPage(student) {
     if (!currentYearHTML) currentYearHTML = '<p>No fees recorded for current year</p>';
     
     studentList.innerHTML = `
-        <div class="full-student-page">
-            <div class="page-header" style="display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; flex-wrap: wrap;">
+        <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; flex-wrap: wrap;">
                 <button class="button button-secondary" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="button button-warning" onclick="editStudent('${student.id}')"><i class="fas fa-edit"></i> Edit</button>
                 <button class="button button-danger" onclick="deleteStudent('${student.id}', '${student.name.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> Delete</button>
                 <button class="button button-primary" onclick="downloadStudentPDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-download"></i> Download PDF</button>
             </div>
-            <div class="student-profile-card" style="background: var(--color-surface); border-radius: 12px; overflow: hidden;">
-                <div class="student-header-full" style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); color: white; padding: 24px; text-align: center;">
-                    <img src="${photoUrl}" alt="${student.name}" onerror="handleImageError(this, '${student.name.replace(/'/g, "\\'")}')" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid white; margin-bottom: 16px;">
-                    <h2 style="color: white;">${student.name}</h2>
+            <div style="background: var(--color-surface); border-radius: 12px; overflow: hidden;">
+                <div style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); color: white; padding: 24px; text-align: center;">
+                    <img src="${getStudentPhotoUrl(student)}" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid white; margin-bottom: 16px;" onerror="handleImageError(this, '${student.name.replace(/'/g, "\\'")}')">
+                    <h2 style="color: white;">${escapeHtml(student.name)}</h2>
                     <p><strong>Class:</strong> ${student.className} | <strong>Roll:</strong> ${student.roll}</p>
                 </div>
                 <div style="padding: 24px;">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                        <div class="info-item"><strong>Father's Name:</strong> ${student.fatherName || "Not specified"}</div>
-                        <div class="info-item"><strong>Mobile:</strong> ${student.mobile || "Not specified"}</div>
-                        <div class="info-item"><strong>Age:</strong> ${student.age || "Not specified"}</div>
-                        <div class="info-item"><strong>Address:</strong> ${student.address || "Not specified"}</div>
+                        <div><strong>Father's Name:</strong> ${escapeHtml(student.fatherName) || "Not specified"}</div>
+                        <div><strong>Mobile:</strong> ${escapeHtml(student.mobile) || "Not specified"}</div>
+                        <div><strong>Age:</strong> ${student.age || "Not specified"}</div>
+                        <div><strong>Address:</strong> ${escapeHtml(student.address) || "Not specified"}</div>
                     </div>
-                    <div class="fee-summary-full" style="background: var(--color-secondary); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-                        <h3 style="margin-bottom: 16px;"><i class="fas fa-rupee-sign"></i> Fee Summary</h3>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                    <div style="background: var(--color-secondary); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+                        <h3>Fee Summary</h3>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                             <div style="background: var(--color-surface); padding: 16px; border-radius: 8px; text-align: center;">
-                                <span style="display: block; color: var(--color-text-secondary); font-size: 14px;">Total Paid</span>
+                                <span style="display: block;">Total Paid</span>
                                 <span style="font-size: 24px; font-weight: bold; color: #10b981;">₹${totalPaid}</span>
                             </div>
                             <div style="background: var(--color-surface); padding: 16px; border-radius: 8px; text-align: center;">
-                                <span style="display: block; color: var(--color-text-secondary); font-size: 14px;">Total Fee</span>
+                                <span style="display: block;">Total Fee</span>
                                 <span style="font-size: 24px; font-weight: bold;">₹${totalFee}</span>
                             </div>
                             <div style="background: var(--color-surface); padding: 16px; border-radius: 8px; text-align: center;">
-                                <span style="display: block; color: var(--color-text-secondary); font-size: 14px;">Balance</span>
+                                <span style="display: block;">Balance</span>
                                 <span style="font-size: 24px; font-weight: bold; ${balance > 0 ? 'color: #ef4444;' : 'color: #10b981;'}">₹${balance}</span>
                             </div>
                         </div>
                     </div>
-                    ${previousYearBill > 0 ? `
-                        <div style="background: var(--color-secondary); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-                            <h3><i class="fas fa-history"></i> Previous Year Bill</h3>
-                            <div class="fee-item" style="display: flex; justify-content: space-between; padding: 12px 0;">
-                                <span>Previous Year's Month Bill:</span>
-                                <span style="font-weight: bold;">₹${previousYearBill}</span>
-                            </div>
-                        </div>
-                    ` : ''}
+                    ${previousYearBill > 0 ? `<div style="background: var(--color-secondary); padding: 20px; border-radius: 12px; margin-bottom: 24px;"><h3>Previous Year Bill</h3><div>Previous Year's Month Bill: ₹${previousYearBill}</div></div>` : ''}
                     <div style="background: var(--color-secondary); padding: 20px; border-radius: 12px;">
-                        <h3><i class="fas fa-calendar-check"></i> Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
-                        <div style="margin-top: 16px;">${currentYearHTML}</div>
+                        <h3>Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
+                        <div>${currentYearHTML}</div>
                         <div style="margin-top: 16px; text-align: right;"><strong>Total Fee: ₹${totalFee}</strong></div>
                     </div>
                 </div>
@@ -470,7 +486,6 @@ function displayFullStudentPage(student) {
 }
 
 async function loadClassPage(className) {
-    // Fixed: Removed extra "Class" word
     showCustomLoading(`Loading ${className}...`);
     editingClass = className;
     classButtons.style.display = 'none';
@@ -481,47 +496,25 @@ async function loadClassPage(className) {
 
 function showErrorPage(message) {
     classButtons.style.display = 'none';
-    studentList.innerHTML = `
-        <div class="error-state">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h3>Error</h3>
-            <p>${message}</p>
-            <button class="button button-primary" onclick="goBack()">Go Back</button>
-        </div>
-    `;
+    studentList.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3><p>${message}</p><button class="button button-primary" onclick="goBack()">Go Back</button></div>`;
     studentDetail.innerHTML = '';
     showMainApp();
 }
 
 // ======================
-// AUTHENTICATION STATE MANAGEMENT
+// AUTHENTICATION
 // ======================
 
 onAuthStateChanged(auth, async (user) => {
-    console.log("Auth state changed:", user ? "User logged in" : "No user");
-    
     if (user) {
         currentUser = user;
-        console.log("✅ User authenticated:", user.email);
         isAdminAuthenticated = true;
-        
-        const hasSharedView = loadStudentFromURL();
-        
-        if (!hasSharedView) {
-            showMainApp();
-            renderClasses();
-            hideLoadingScreen();
-        }
+        if (!loadStudentFromURL()) { showMainApp(); renderClasses(); hideLoadingScreen(); }
     } else {
         currentUser = null;
         isAdminAuthenticated = false;
-        
-        const hasSharedView = loadStudentFromURL();
-        
-        if (!hasSharedView) {
-            showAuthSection();
-            hideLoadingScreen();
-        }
+        if (!loadStudentFromURL()) showAuthSection();
+        hideLoadingScreen();
     }
 });
 
@@ -539,45 +532,19 @@ function showMainApp() {
     nonAdminMessage.style.display = 'none';
 }
 
-// Login Functions
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('adminEmail').value.trim();
-    const password = document.getElementById('adminPassword').value;
-    if (!email || !password) {
-        showLoginError('Please enter both email and password');
-        return;
-    }
+    const pwd = document.getElementById('adminPassword').value;
+    if (!email || !pwd) { showLoginError('Enter both'); return; }
     showLoginLoading(true);
-    hideLoginError();
     try {
-        await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-        console.error("Login error:", error.code);
-        showLoginError(getAuthErrorMessage(error.code));
-        showLoginLoading(false);
-    }
+        await signInWithEmailAndPassword(auth, email, pwd);
+    } catch(err) { showLoginError('Invalid credentials'); showLoginLoading(false); }
 });
 
-logoutButton.addEventListener('click', async () => {
-    try {
-        await signOut(auth);
-        console.log("User signed out successfully");
-        goBack();
-    } catch (error) {
-        console.error("Logout error:", error);
-        alert("Error signing out: " + error.message);
-    }
-});
-
-window.signOut = async () => {
-    try {
-        await signOut(auth);
-        goBack();
-    } catch (error) {
-        console.error("Sign out error:", error);
-    }
-};
+logoutButton.addEventListener('click', async () => { await signOut(auth); goBack(); });
+window.signOut = async () => { await signOut(auth); goBack(); };
 
 function showLoginLoading(show) {
     if (show) {
@@ -591,36 +558,14 @@ function showLoginLoading(show) {
     }
 }
 
-function showLoginError(message) {
-    loginError.textContent = message;
-    loginError.style.display = 'block';
-}
-
-function hideLoginError() {
-    loginError.style.display = 'none';
-}
-
-function getAuthErrorMessage(errorCode) {
-    switch (errorCode) {
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-        case 'auth/invalid-credential':
-            return 'Invalid email or password.';
-        case 'auth/invalid-email':
-            return 'Please enter a valid email address.';
-        case 'auth/too-many-requests':
-            return 'Too many failed attempts. Please try again later.';
-        default:
-            return 'Login failed. Please try again.';
-    }
-}
+function showLoginError(msg) { loginError.textContent = msg; loginError.style.display = 'block'; }
+function hideLoginError() { loginError.style.display = 'none'; }
 
 // ======================
-// CORE APPLICATION FUNCTIONS
+// RENDER CLASSES & STUDENTS
 // ======================
 
 function renderClasses() {
-    console.log("Rendering classes...");
     studentList.innerHTML = '';
     studentDetail.innerHTML = '';
     hideAddStudentForm();
@@ -628,223 +573,88 @@ function renderClasses() {
     classButtons.innerHTML = `
         <div class="add-student-home-section">
             <h2><i class="fas fa-user-plus"></i> Add New Student</h2>
-            <button class='button button-primary' onclick='showAddStudentForm()'>
-                <i class="fas fa-plus"></i> Add Student
-            </button>
+            <button class='button button-primary' onclick='showAddStudentForm()'><i class="fas fa-plus"></i> Add Student</button>
         </div>
         <h2><i class="fas fa-school"></i> Select Class</h2>
         <div class="card-grid">
-            ${CLASSES.map(className => `
-                <div class="card" onclick="navigateToClass('${className.replace(/'/g, "\\'")}')">
-                    <i class="fas fa-users"></i>
-                    <h3>${className}</h3>
-                    <p>View Students</p>
-                </div>
-            `).join('')}
+            ${CLASSES.map(c => `<div class="card" onclick="navigateToClass('${c.replace(/'/g,"\\'")}')"><i class="fas fa-users"></i><h3>${c}</h3><p>View Students</p></div>`).join('')}
         </div>
     `;
 }
 
 async function loadStudents(className) {
-    console.log("Loading students for class:", className);
-    if (!isAdminAuthenticated) {
-        alert("Please authenticate first.");
-        return;
-    }
+    if (!isAdminAuthenticated) { alert("Please authenticate."); return; }
     editingClass = className;
     classButtons.style.display = 'none';
     try {
-        const studentsRef = collection(db, "students");
-        const q = query(studentsRef, where("className", "==", className));
-        const snapshot = await getDocs(q);
-        console.log(`Found ${snapshot.size} students in ${className}`);
-        if (snapshot.empty) {
-            studentList.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-user-slash"></i>
-                    <h3>No Students Found</h3>
-                    <p>No students found in ${className}</p>
-                    <button class="button button-primary" onclick="showAddStudentForm()">
-                        <i class="fas fa-plus"></i> Add First Student
-                    </button>
-                    <button class="button button-secondary" onclick="goBack()" style="margin-top: 10px;">
-                        <i class="fas fa-arrow-left"></i> Back to Classes
-                    </button>
-                </div>
-            `;
+        const q = query(collection(db,"students"), where("className","==",className));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+            studentList.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><h3>No Students</h3><button class="button button-primary" onclick="showAddStudentForm()">Add First Student</button><button class="button button-secondary" onclick="goBack()">Back</button></div>`;
         } else {
-            let studentsHTML = `
-                <div class="class-header">
-                    <h3><i class="fas fa-users"></i> Students in ${className}</h3>
-                    <button class="button button-secondary" onclick="goBack()">
-                        <i class="fas fa-arrow-left"></i> Back to Classes
-                    </button>
-                </div>
-                <input type="text" id="searchInput" placeholder="Search students by name or roll number..." 
-                       oninput="filterStudents()" class="search-input">
-                <div id="studentNames">
-            `;
+            let html = `<div class="class-header"><h3>Students in ${className}</h3><button class="button button-secondary" onclick="goBack()">Back</button></div><input type="text" id="searchInput" placeholder="Search..." oninput="filterStudents()" class="search-input"><div id="studentNames">`;
             const students = [];
-            snapshot.forEach(doc => {
-                students.push({ id: doc.id, ...doc.data() });
-            });
-            students.sort((a, b) => a.roll - b.roll);
-            students.forEach(student => {
-                studentsHTML += `
-                    <div class="student-name" data-name="${student.name.toLowerCase()}" data-roll="${student.roll}" onclick="navigateToStudent('${student.id}')">
-                        <div class="student-info-brief">
-                            <span class="student-name-text">${escapeHtml(student.name)}</span>
-                            <span class="student-roll">Roll: ${student.roll}</span>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
-                `;
-            });
-            studentsHTML += `
-                </div>
-                <button class="button button-primary" onclick="showAddStudentForm()" style="margin-top: 20px; width: 100%;">
-                    <i class="fas fa-plus"></i> Add New Student to ${className}
-                </button>
-            `;
-            studentList.innerHTML = studentsHTML;
+            snap.forEach(d => students.push({ id: d.id, ...d.data() }));
+            students.sort((a,b)=>a.roll-b.roll);
+            for (const s of students) {
+                html += `<div class="student-name" data-name="${s.name.toLowerCase()}" data-roll="${s.roll}" onclick="navigateToStudent('${s.id}')"><div><strong>${escapeHtml(s.name)}</strong><br><small>Roll: ${s.roll}</small></div><i class="fas fa-chevron-right"></i></div>`;
+            }
+            html += `</div><button class="button button-primary" onclick="showAddStudentForm()" style="margin-top:20px;width:100%;">Add New Student to ${className}</button>`;
+            studentList.innerHTML = html;
         }
         studentDetail.innerHTML = '';
         hideAddStudentForm();
-    } catch (error) {
-        console.error("Error loading students:", error);
-        studentList.innerHTML = `
-            <div class="error-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error Loading Students</h3>
-                <p>${error.message}</p>
-                <button class="button button-primary" onclick="loadStudents('${className}')">
-                    <i class="fas fa-refresh"></i> Try Again
-                </button>
-                <button class="button button-secondary" onclick="goBack()" style="margin-top: 10px;">
-                    <i class="fas fa-arrow-left"></i> Back to Classes
-                </button>
-            </div>
-        `;
-    }
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    } catch(e) { studentList.innerHTML = `<div class="error-state">Error: ${e.message}</div>`; }
 }
 
 window.filterStudents = function() {
-    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    const studentNames = document.querySelectorAll('#studentNames .student-name');
-    studentNames.forEach(studentElement => {
-        const name = studentElement.dataset.name;
-        const roll = studentElement.dataset.roll;
-        if (name.includes(searchTerm) || roll.includes(searchTerm)) {
-            studentElement.style.display = 'flex';
-        } else {
-            studentElement.style.display = 'none';
-        }
+    const term = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    document.querySelectorAll('#studentNames .student-name').forEach(el => {
+        const name = el.dataset.name, roll = el.dataset.roll;
+        el.style.display = (name?.includes(term) || roll?.includes(term)) ? 'flex' : 'none';
     });
 };
 
 // ======================
-// STUDENT MANAGEMENT FUNCTIONS
+// STUDENT FORM
 // ======================
 
-window.showAddStudentForm = function(isEditMode = false) {
-    console.log("Showing add student form. Edit mode:", isEditMode);
+window.showAddStudentForm = function(isEdit = false) {
     addStudentForm.innerHTML = '';
-    const classOptions = CLASSES.map(cls => {
-        const selected = cls === editingClass ? 'selected' : '';
-        return `<option value="${cls}" ${selected}>${cls}</option>`;
-    }).join('');
-    
-    let monthlyFields = '';
-    for (let i = 0; i < MONTHS.length; i++) {
-        monthlyFields += `
-            <div class="fee-input-group" style="margin-bottom: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px;">
+    const classOptions = CLASSES.map(c => `<option value="${c}" ${c===editingClass?'selected':''}>${c}</option>`).join('');
+    let monthlyHtml = '';
+    for (let i=0; i<MONTHS.length; i++) {
+        monthlyHtml += `
+            <div style="margin-bottom:12px; padding:12px; border:1px solid #ddd; border-radius:8px;">
                 <label><strong>${MONTH_NAMES[i]}</strong></label>
-                <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
-                    <input type="number" id="${MONTHS[i]}Amount" placeholder="Amount (₹)" min="0" value="0" style="flex: 2;">
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="${MONTHS[i]}Paid" checked> Paid (Uncheck if not paid)
-                    </label>
+                <div style="display:flex; gap:10px; margin-top:8px;">
+                    <input type="number" id="${MONTHS[i]}Amount" placeholder="Amount" min="0" value="0" style="flex:2;">
+                    <label><input type="checkbox" id="${MONTHS[i]}Paid" checked> Paid</label>
                 </div>
             </div>
         `;
     }
-    
     addStudentForm.innerHTML = `
         <div class="form-container-inner">
-            <h2><i class="fas fa-${isEditMode ? 'user-edit' : 'user-plus'}"></i> ${isEditMode ? 'Edit Student' : 'Add New Student'}</h2>
+            <h2><i class="fas fa-${isEdit ? 'user-edit' : 'user-plus'}"></i> ${isEdit ? 'Edit Student' : 'Add Student'}</h2>
             <form id="studentForm">
-                <div class="form-field">
-                    <label for="className">Class*</label>
-                    <select id="className" required class="form-control">
-                        <option value="">-- Select Class --</option>
-                        ${classOptions}
-                    </select>
-                </div>
-                <div class="form-field">
-                    <label for="studentName">Student Name *</label>
-                    <input type="text" id="studentName" placeholder="Enter student name" required>
-                </div>
-                <div class="form-field">
-                    <label for="fatherName">Father's Name</label>
-                    <input type="text" id="fatherName" placeholder="Enter father's name">
-                </div>
-                <div class="form-field">
-                    <label for="mobile">Mobile Number</label>
-                    <input type="tel" id="mobile" placeholder="Enter mobile number">
-                </div>
-                <div class="form-field">
-                    <label for="roll">Roll Number *</label>
-                    <input type="number" id="roll" placeholder="Enter roll number" required min="1">
-                </div>
-                <div class="form-field">
-                    <label for="age">Age</label>
-                    <input type="number" id="age" placeholder="Enter age">
-                </div>
-                <div class="form-field">
-                    <label for="address">Address</label>
-                    <textarea id="address" placeholder="Enter address" rows="3"></textarea>
-                </div>
-                <div class="form-field">
-                    <label for="photo">Photo URL (Google Drive link supported)</label>
-                    <input type="url" id="photo" placeholder="https://drive.google.com/file/d/...">
-                    <small class="form-help">Tip: Paste Google Drive share link</small>
-                </div>
-                <div class="fee-form-section">
-                    <h3><i class="fas fa-history"></i> Previous Year Bill</h3>
-                    <div class="form-field">
-                        <label for="previousYearBill">Previous Year's Month Bill (₹)</label>
-                        <input type="number" id="previousYearBill" placeholder="Enter previous year's bill amount" min="0" value="0">
-                    </div>
-                </div>
-                <div class="fee-form-section">
-                    <h3><i class="fas fa-calendar-alt"></i> Monthly Fees (Current Year)</h3>
-                    <p><small>✅ Checkbox is checked by default (Paid). Uncheck if not paid.</small></p>
-                    ${monthlyFields}
-                </div>
-                <div class="action-buttons">
-                    <button type="submit" class="button button-primary">
-                        <i class="fas fa-save"></i>
-                        <span id="saveButtonText">${isEditMode ? 'Update Student' : 'Add Student'}</span>
-                    </button>
-                    <button type="button" class="button button-warning" onclick="hideAddStudentForm()">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                </div>
+                <div class="form-field"><label>Class*</label><select id="className" required>${classOptions}</select></div>
+                <div class="form-field"><label>Student Name*</label><input type="text" id="studentName" required></div>
+                <div class="form-field"><label>Father's Name</label><input type="text" id="fatherName"></div>
+                <div class="form-field"><label>Mobile</label><input type="tel" id="mobile"></div>
+                <div class="form-field"><label>Roll Number*</label><input type="number" id="roll" min="1" required></div>
+                <div class="form-field"><label>Age</label><input type="number" id="age"></div>
+                <div class="form-field"><label>Address</label><textarea id="address" rows="2"></textarea></div>
+                <div class="form-field"><label>Photo URL</label><input type="url" id="photo" placeholder="Google Drive link"><small>Paste Google Drive share link</small></div>
+                <div class="fee-form-section"><h3>Previous Year Bill</h3><div><label>Previous Year's Month Bill (₹)</label><input type="number" id="previousYearBill" min="0" value="0"></div></div>
+                <div class="fee-form-section"><h3>Monthly Fees (Current Year)</h3><p><small>✅ Checked = Paid, Uncheck = Not Paid</small></p>${monthlyHtml}</div>
+                <div class="action-buttons"><button type="submit" class="button button-primary"><i class="fas fa-save"></i> ${isEdit ? 'Update' : 'Add'}</button><button type="button" class="button button-warning" onclick="hideAddStudentForm()">Cancel</button></div>
             </form>
         </div>
     `;
-    currentForm = isEditMode ? 'edit' : 'add';
-    const studentFormElement = document.getElementById('studentForm');
-    if (studentFormElement) {
-        studentFormElement.removeEventListener('submit', handleFormSubmit);
-        studentFormElement.addEventListener('submit', handleFormSubmit);
-    }
+    currentForm = isEdit ? 'edit' : 'add';
+    const formEl = document.getElementById('studentForm');
+    if (formEl) { formEl.removeEventListener('submit', handleFormSubmit); formEl.addEventListener('submit', handleFormSubmit); }
     addStudentForm.style.display = 'block';
     addStudentForm.scrollIntoView({ behavior: 'smooth' });
 };
@@ -853,65 +663,44 @@ window.hideAddStudentForm = function() {
     addStudentForm.style.display = 'none';
     addStudentForm.innerHTML = '';
     editingStudentId = null;
-    currentForm = null;
 };
 
 window.editStudent = async function(studentId) {
-    console.log("Editing student:", studentId);
     editingStudentId = studentId;
     try {
-        const studentRef = doc(db, "students", studentId);
-        const studentSnap = await getDoc(studentRef);
-        if (studentSnap.exists()) {
-            const student = studentSnap.data();
+        const snap = await getDoc(doc(db,"students",studentId));
+        if (snap.exists()) {
+            const student = snap.data();
             editingClass = student.className;
             showAddStudentForm(true);
-            setTimeout(() => populateEditForm(student), 100);
+            setTimeout(() => {
+                document.getElementById('className').value = student.className || '';
+                document.getElementById('studentName').value = student.name || '';
+                document.getElementById('fatherName').value = student.fatherName || '';
+                document.getElementById('mobile').value = student.mobile || '';
+                document.getElementById('roll').value = student.roll || '';
+                document.getElementById('age').value = student.age || '';
+                document.getElementById('address').value = student.address || '';
+                document.getElementById('photo').value = student.photo || '';
+                document.getElementById('previousYearBill').value = student.previousYearBill || 0;
+                const fees = normalizeMonthlyFees(student.monthlyFees);
+                for (const m of MONTHS) {
+                    const amt = document.getElementById(m+'Amount');
+                    const chk = document.getElementById(m+'Paid');
+                    if (amt) amt.value = fees[m]?.amount || 0;
+                    if (chk) chk.checked = fees[m]?.paid !== false;
+                }
+            }, 100);
         }
-    } catch (error) {
-        console.error("Error loading student for editing:", error);
-        alert("Error loading student: " + error.message);
-    }
+    } catch(e) { alert("Error loading student"); }
 };
-
-function populateEditForm(student) {
-    try {
-        document.getElementById('className').value = student.className || '';
-        document.getElementById('studentName').value = student.name || '';
-        document.getElementById('fatherName').value = student.fatherName || '';
-        document.getElementById('mobile').value = student.mobile || '';
-        document.getElementById('roll').value = student.roll || '';
-        document.getElementById('age').value = student.age || '';
-        document.getElementById('address').value = student.address || '';
-        document.getElementById('photo').value = student.photo || '';
-        document.getElementById('previousYearBill').value = student.previousYearBill || 0;
-        
-        const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
-        for (const month of MONTHS) {
-            const amountInput = document.getElementById(month + 'Amount');
-            const paidCheckbox = document.getElementById(month + 'Paid');
-            if (amountInput) amountInput.value = monthlyFees[month]?.amount || 0;
-            if (paidCheckbox) paidCheckbox.checked = monthlyFees[month]?.paid !== false;
-        }
-        console.log("Edit form populated successfully");
-    } catch (error) {
-        console.error("Error populating edit form:", error);
-        alert("Error loading form data. Please try again.");
-    }
-}
 
 async function handleFormSubmit(e) {
     e.preventDefault();
-    if (!isAdminAuthenticated) {
-        alert("Please authenticate first.");
-        return;
-    }
-    
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    
+    if (!isAdminAuthenticated) { alert("Auth required"); return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     try {
         const className = document.getElementById('className').value;
         const name = document.getElementById('studentName').value.trim();
@@ -922,93 +711,41 @@ async function handleFormSubmit(e) {
         const address = document.getElementById('address').value.trim();
         const photo = document.getElementById('photo').value.trim();
         const previousYearBill = parseInt(document.getElementById('previousYearBill').value) || 0;
-        
-        if (!className || !name || !roll) {
-            alert("Please fill in all required fields (Class, Name, Roll).");
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-            return;
-        }
-        
+        if (!className || !name || !roll) throw new Error("Required fields missing");
         const monthlyFees = {};
-        for (const month of MONTHS) {
-            const amount = parseInt(document.getElementById(month + 'Amount').value) || 0;
-            const paid = document.getElementById(month + 'Paid').checked;
-            monthlyFees[month] = { amount, paid };
+        for (const m of MONTHS) {
+            const amount = parseInt(document.getElementById(m+'Amount').value) || 0;
+            const paid = document.getElementById(m+'Paid').checked;
+            monthlyFees[m] = { amount, paid };
         }
-        
-        const studentData = {
-            name, fatherName, mobile, roll, age, address, photo,
-            monthlyFees, previousYearBill,
-            className: className,
-            updatedAt: serverTimestamp(),
-            updatedBy: currentUser.uid
-        };
-        
+        const data = { name, fatherName, mobile, roll, age, address, photo, monthlyFees, previousYearBill, className, updatedAt: serverTimestamp(), updatedBy: currentUser.uid };
         if (editingStudentId && currentForm === 'edit') {
-            const studentRef = doc(db, "students", editingStudentId);
-            await updateDoc(studentRef, studentData);
+            await updateDoc(doc(db,"students",editingStudentId), data);
             alert("Student updated successfully!");
         } else {
-            studentData.createdAt = serverTimestamp();
-            studentData.createdBy = currentUser.uid;
-            const studentsRef = collection(db, "students");
-            await addDoc(studentsRef, studentData);
+            data.createdAt = serverTimestamp();
+            await addDoc(collection(db,"students"), data);
             alert("Student added successfully!");
         }
-        
         hideAddStudentForm();
-        
-        if (editingClass && className === editingClass) {
-            loadStudents(editingClass);
-        } else if (className) {
-            editingClass = className;
-            loadStudents(className);
-        } else {
-            renderClasses();
-        }
-        
-    } catch (error) {
-        console.error("Error saving student:", error);
-        alert("Error saving student: " + error.message);
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    }
+        if (editingClass && className === editingClass) loadStudents(editingClass);
+        else loadStudents(className);
+    } catch(err) { alert(err.message); } finally { btn.disabled = false; btn.innerHTML = orig; }
 }
 
 window.deleteStudent = async function(studentId, studentName) {
-    if (!confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone.`)) {
-        return;
-    }
-    try {
-        const studentRef = doc(db, "students", studentId);
-        await deleteDoc(studentRef);
-        alert(`${studentName} has been deleted successfully.`);
-        if (editingClass) {
-            loadStudents(editingClass);
-        }
-    } catch (error) {
-        console.error("Error deleting student:", error);
-        alert("Error deleting student: " + error.message);
+    if (confirm(`Delete ${studentName}?`)) {
+        await deleteDoc(doc(db,"students",studentId));
+        alert("Student deleted successfully!");
+        if (editingClass) loadStudents(editingClass);
     }
 };
 
 // ======================
-// ADD AUTO-TABLE PLUGIN FOR jspdf
-// ======================
-
-// Load auto-table plugin
-const script = document.createElement('script');
-script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
-script.onload = () => console.log('AutoTable loaded');
-document.head.appendChild(script);
-
-// ======================
-// INITIALIZE APP
+// INITIALIZE
 // ======================
 
 showCustomLoading("Initializing KVM Classes...");
-
 setTimeout(() => {
     if (authSection.style.display !== 'flex' && mainApp.style.display !== 'block') {
         showAuthSection();
