@@ -1913,3 +1913,18 @@ select.form-control {
     -moz-appearance: none;
     appearance: none;
 }
+/* Mobile Fix */
+@media (max-width: 768px) {
+    body, .container, .content-wrapper {
+        overflow-x: hidden !important;
+        width: 100% !important;
+    }
+    .info-grid, .summary-grid {
+        flex-direction: column !important;
+        display: flex !important;
+    }
+    button {
+        width: 100% !important;
+        margin: 5px 0 !important;
+    }
+}
