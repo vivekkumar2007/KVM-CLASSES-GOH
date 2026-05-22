@@ -116,11 +116,11 @@ function calculateFeeTotals(monthlyFees) {
 }
 
 // ======================
-// PDF GENERATION - USING BROWSER PRINT (100% RELIABLE)
+// RECEIPT PDF GENERATION - USING WINDOW PRINT (100% WORKING)
 // ======================
 
 window.downloadStudentPDF = function(student) {
-    showCustomLoading("Preparing PDF...");
+    showCustomLoading("Preparing Receipt...");
     
     setTimeout(() => {
         try {
@@ -130,30 +130,34 @@ window.downloadStudentPDF = function(student) {
             const totalPaid = monthlyPaid + previousYearBill;
             const balance = totalFee - totalPaid;
             
-            // Build fee table
+            // Build fee table rows
             let feeRows = '';
             for (let i = 0; i < MONTHS.length; i++) {
                 const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
                 if (f.amount > 0) {
                     feeRows += `
-                        <tr style="border-bottom: 1px solid #ddd;">
-                            <td style="padding: 10px;">${MONTH_NAMES[i]}</td>
-                            <td style="padding: 10px; text-align: right;">₹${f.amount}</td>
-                            <td style="padding: 10px; text-align: center;">${f.paid ? '✅ Paid' : '❌ Not Paid'}</td>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${MONTH_NAMES[i]}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${f.amount}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">
+                                ${f.paid ? '<span style="color: #10b981;">✓ PAID</span>' : '<span style="color: #dc2626;">✗ NOT PAID</span>'}
+                            </td>
                         </tr>
                     `;
                 }
             }
             
-            if (!feeRows) feeRows = '<tr><td colspan="3" style="padding: 20px; text-align: center;">No fees recorded</td></tr>';
+            if (!feeRows) {
+                feeRows = '<tr><td colspan="3" style="padding: 20px; text-align: center;">No fees recorded</td></tr>';
+            }
             
-            // Create print window content
-            const printContent = `
+            // Create receipt HTML
+            const receiptHTML = `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>${student.name} - Student Profile</title>
+    <title>Fee Receipt - ${student.name}</title>
     <style>
         * {
             margin: 0;
@@ -162,73 +166,93 @@ window.downloadStudentPDF = function(student) {
         }
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
-            padding: 40px;
-            max-width: 900px;
-            margin: 0 auto;
-            color: #333;
-            line-height: 1.5;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
         }
-        .header {
+        .receipt {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .receipt-header {
+            background: linear-gradient(135deg, #1f4f5e, #0d2f3a);
+            color: white;
+            padding: 30px;
             text-align: center;
-            margin-bottom: 30px;
         }
-        .photo {
-            width: 130px;
-            height: 130px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid #1f4f5e;
+        .receipt-header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
         }
-        h1 {
+        .receipt-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .receipt-body {
+            padding: 30px;
+        }
+        .student-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .student-info h3 {
             color: #1f4f5e;
-            margin: 15px 0 5px;
-            font-size: 24px;
-        }
-        h2 {
-            color: #1f4f5e;
-            border-bottom: 2px solid #1f4f5e;
-            padding-bottom: 8px;
-            margin: 25px 0 15px 0;
+            margin-bottom: 15px;
             font-size: 18px;
         }
         .info-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
         }
         .info-item {
             display: flex;
             align-items: baseline;
         }
         .info-label {
-            font-weight: bold;
-            width: 120px;
+            font-weight: 600;
+            width: 110px;
             color: #555;
+            font-size: 14px;
         }
         .info-value {
-            flex: 1;
             color: #333;
+            font-size: 14px;
         }
         .fee-summary {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .summary-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #166534;
+            margin-bottom: 15px;
+        }
+        .summary-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
-            margin: 15px 0;
         }
         .summary-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
             text-align: center;
         }
         .summary-label {
             font-size: 13px;
-            color: #666;
+            color: #166534;
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
         .summary-amount {
             font-size: 22px;
@@ -239,7 +263,7 @@ window.downloadStudentPDF = function(student) {
         .fee-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
+            margin-top: 10px;
         }
         .fee-table th {
             background: #1f4f5e;
@@ -250,90 +274,142 @@ window.downloadStudentPDF = function(student) {
         }
         .fee-table td {
             padding: 10px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            color: #999;
-            font-size: 11px;
         }
         .previous-bill {
             background: #fef3c7;
-            padding: 12px 15px;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .total-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #e5e7eb;
+            text-align: right;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .receipt-footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #666;
+        }
+        .print-btn {
+            display: block;
+            width: 200px;
+            margin: 20px auto 0;
+            padding: 12px;
+            background: #1f4f5e;
+            color: white;
+            border: none;
             border-radius: 8px;
-            margin: 15px 0;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .print-btn:hover {
+            background: #0d2f3a;
         }
         @media print {
             body {
-                padding: 20px;
+                background: white;
+                padding: 0;
             }
-            .no-print {
+            .print-btn {
                 display: none;
+            }
+            .receipt {
+                box-shadow: none;
+                border-radius: 0;
             }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <img src="${getStudentPhotoUrl(student)}" class="photo" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=random&color=fff&size=150&bold=true'">
-        <h1>${escapeHtml(student.name)}</h1>
-        <p style="margin-top: 8px; color: #666;"><strong>Class:</strong> ${student.className} | <strong>Roll Number:</strong> ${student.roll}</p>
-    </div>
-    
-    <h2>📋 Personal Information</h2>
-    <div class="info-grid">
-        <div class="info-item"><span class="info-label">Father's Name:</span><span class="info-value">${escapeHtml(student.fatherName || 'Not specified')}</span></div>
-        <div class="info-item"><span class="info-label">Mobile:</span><span class="info-value">${escapeHtml(student.mobile || 'Not specified')}</span></div>
-        <div class="info-item"><span class="info-label">Age:</span><span class="info-value">${student.age || 'Not specified'}</span></div>
-        <div class="info-item"><span class="info-label">Address:</span><span class="info-value">${escapeHtml(student.address || 'Not specified')}</span></div>
-    </div>
-    
-    <h2>💰 Fee Summary</h2>
-    <div class="fee-summary">
-        <div class="summary-card">
-            <span class="summary-label">Total Paid</span>
-            <span class="summary-amount amount-paid">₹${totalPaid}</span>
+    <div class="receipt">
+        <div class="receipt-header">
+            <h1>🎓 KVM CLASSES</h1>
+            <p>Goh Aurangabad - Student Management System</p>
+            <p>Fee Receipt</p>
         </div>
-        <div class="summary-card">
-            <span class="summary-label">Total Fee</span>
-            <span class="summary-amount">₹${totalFee}</span>
+        
+        <div class="receipt-body">
+            <div class="student-info">
+                <h3>📋 STUDENT INFORMATION</h3>
+                <div class="info-grid">
+                    <div class="info-item"><span class="info-label">Student Name:</span><span class="info-value">${escapeHtml(student.name)}</span></div>
+                    <div class="info-item"><span class="info-label">Class:</span><span class="info-value">${student.className}</span></div>
+                    <div class="info-item"><span class="info-label">Roll Number:</span><span class="info-value">${student.roll}</span></div>
+                    <div class="info-item"><span class="info-label">Father's Name:</span><span class="info-value">${escapeHtml(student.fatherName) || 'Not specified'}</span></div>
+                    <div class="info-item"><span class="info-label">Mobile:</span><span class="info-value">${escapeHtml(student.mobile) || 'Not specified'}</span></div>
+                    <div class="info-item"><span class="info-label">Address:</span><span class="info-value">${escapeHtml(student.address) || 'Not specified'}</span></div>
+                </div>
+            </div>
+            
+            <div class="fee-summary">
+                <div class="summary-title">💰 FEE SUMMARY</div>
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span class="summary-label">Total Paid</span>
+                        <span class="summary-amount amount-paid">₹${totalPaid}</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Total Fee</span>
+                        <span class="summary-amount">₹${totalFee}</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Balance</span>
+                        <span class="summary-amount ${balance > 0 ? 'amount-due' : 'amount-paid'}">₹${balance}</span>
+                    </div>
+                </div>
+            </div>
+            
+            ${previousYearBill > 0 ? `
+            <div class="previous-bill">
+                <span>📅 Previous Year Bill</span>
+                <strong>₹${previousYearBill}</strong>
+            </div>
+            ` : ''}
+            
+            <h3 style="margin: 20px 0 10px; color: #1f4f5e;">📆 MONTHLY FEE BREAKDOWN (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
+            <table class="fee-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>${feeRows}</tbody>
+            </table>
+            
+            <div class="total-section">
+                Total Current Year Fee: ₹${totalFee}
+            </div>
         </div>
-        <div class="summary-card">
-            <span class="summary-label">Balance</span>
-            <span class="summary-amount ${balance > 0 ? 'amount-due' : 'amount-paid'}">₹${balance}</span>
+        
+        <div class="receipt-footer">
+            <p>This is a computer generated receipt | Valid without signature</p>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
         </div>
-    </div>
-    
-    ${previousYearBill > 0 ? `
-    <div class="previous-bill">
-        <strong>📅 Previous Year Bill:</strong> ₹${previousYearBill}
-    </div>
-    ` : ''}
-    
-    <h2>📆 Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h2>
-    <table class="fee-table">
-        <thead>
-            <tr><th>Month</th><th style="text-align: right;">Amount</th><th style="text-align: center;">Status</th></tr>
-        </thead>
-        <tbody>${feeRows}</tbody>
-    </table>
-    <div style="text-align: right; margin-top: 15px; font-weight: bold;">Total Current Year Fee: ₹${totalFee}</div>
-    
-    <div class="footer">
-        <p>Generated by KVM Classes Student Management System</p>
-        <p>${new Date().toLocaleString()}</p>
+        
+        <button class="print-btn" onclick="window.print(); setTimeout(() => window.close(), 1000);">
+            🖨️ Print / Save as PDF
+        </button>
     </div>
     
     <script>
-        window.onload = function() {
-            setTimeout(function() {
-                window.print();
-                setTimeout(function() { window.close(); }, 1000);
-            }, 500);
-        };
+        // Auto-trigger print dialog after 500ms
+        setTimeout(function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 1000);
+        }, 500);
     </script>
 </body>
 </html>
@@ -343,13 +419,13 @@ window.downloadStudentPDF = function(student) {
             
             // Open print window
             const printWindow = window.open('', '_blank');
-            printWindow.document.write(printContent);
+            printWindow.document.write(receiptHTML);
             printWindow.document.close();
             
         } catch (error) {
             console.error("Error:", error);
             hideLoadingScreen();
-            alert("Error preparing PDF. Please try again.");
+            alert("Error preparing receipt. Please try again.");
         }
     }, 100);
 };
@@ -361,6 +437,8 @@ function escapeHtml(str) {
         if (m === '<') return '&lt;';
         if (m === '>') return '&gt;';
         return m;
+    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+        return c;
     });
 }
 
@@ -439,7 +517,7 @@ function displayFullStudentPage(student) {
                 <button class="button button-secondary" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="button button-warning" onclick="editStudent('${student.id}')"><i class="fas fa-edit"></i> Edit</button>
                 <button class="button button-danger" onclick="deleteStudent('${student.id}', '${student.name.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> Delete</button>
-                <button class="button button-primary" onclick="downloadStudentPDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-download"></i> Download PDF</button>
+                <button class="button button-primary" onclick="downloadStudentPDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-receipt"></i> Print Receipt</button>
             </div>
             <div style="background: var(--color-surface); border-radius: 12px; overflow: hidden;">
                 <div style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); color: white; padding: 24px; text-align: center;">
