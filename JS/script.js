@@ -125,13 +125,13 @@ function normalizeMonthlyFees(oldFees) {
     for (const month of MONTHS) {
         const val = oldFees[month];
         if (val === undefined || val === null) {
-            newFees[month] = { amount: 0, paid: false };
+            newFees[month] = { amount: 0, paid: true }; // Default paid = true
         } else if (typeof val === 'number') {
-            newFees[month] = { amount: val, paid: false };
+            newFees[month] = { amount: val, paid: true }; // Default paid = true
         } else if (typeof val === 'object' && val !== null) {
-            newFees[month] = { amount: val.amount || 0, paid: val.paid === true };
+            newFees[month] = { amount: val.amount || 0, paid: val.paid !== false }; // Default paid = true unless explicitly false
         } else {
-            newFees[month] = { amount: 0, paid: false };
+            newFees[month] = { amount: 0, paid: true };
         }
     }
     return newFees;
@@ -141,7 +141,7 @@ function calculateFeeTotals(monthlyFees) {
     let totalFee = 0;
     let totalPaid = 0;
     for (const month of MONTHS) {
-        const feeObj = monthlyFees[month] || { amount: 0, paid: false };
+        const feeObj = monthlyFees[month] || { amount: 0, paid: true };
         const amount = feeObj.amount || 0;
         totalFee += amount;
         if (feeObj.paid) totalPaid += amount;
@@ -150,118 +150,122 @@ function calculateFeeTotals(monthlyFees) {
 }
 
 // ======================
-// DOWNLOAD & SHARE PDF FUNCTION
+// DOWNLOAD & SHARE PDF FUNCTION - FIXED
 // ======================
 
 window.downloadAndSharePDF = async function(student) {
     // Show loading
     showCustomLoading("Generating PDF...");
     
-    setTimeout(async () => {
-        try {
-            const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
-            const previousYearBill = student.previousYearBill || 0;
-            const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
-            const totalPaid = monthlyPaid + previousYearBill;
-            const balance = totalFee - monthlyPaid;
-            
-            let rows = '';
-            for (let i = 0; i < MONTHS.length; i++) {
-                const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: false };
-                if (f.amount > 0) {
-                    rows += `<tr><td style="padding: 8px; border: 1px solid #ddd;">${MONTH_NAMES[i]}</td><td style="padding: 8px; border: 1px solid #ddd;">₹${f.amount}</td><td style="padding: 8px; border: 1px solid #ddd;">${f.paid ? '✓ Paid' : '✗ Not Paid'}</td></tr>`;
-                }
+    try {
+        const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
+        const previousYearBill = student.previousYearBill || 0;
+        const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
+        const totalPaid = monthlyPaid + previousYearBill;
+        const balance = totalFee - monthlyPaid;
+        
+        let rows = '';
+        for (let i = 0; i < MONTHS.length; i++) {
+            const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
+            if (f.amount > 0) {
+                rows += `
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${MONTH_NAMES[i]}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${f.amount}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${f.paid ? '✅ Paid' : '❌ Not Paid'}</td>
+                    </tr>
+                `;
             }
-            if (!rows) rows = '<tr><td colspan="3" style="padding: 8px;">No fees recorded</td></tr>';
-            
-            const photoUrl = getStudentPhotoUrl(student);
-            
-            // Create a temporary div for PDF content
-            const element = document.createElement('div');
-            element.style.padding = '20px';
-            element.style.fontFamily = 'Arial, sans-serif';
-            element.style.backgroundColor = 'white';
-            element.style.color = '#333';
-            element.innerHTML = `
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <img src="${photoUrl}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover;" onerror="this.src='${getDefaultAvatar(student.name)}'">
-                    <h1 style="margin-top: 15px; color: #1f4f5e;">${student.name}</h1>
-                    <p><strong>Class:</strong> ${student.className} | <strong>Roll Number:</strong> ${student.roll}</p>
-                </div>
-                
-                <div style="margin-bottom: 25px;">
-                    <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 5px;">Personal Information</h2>
-                    <p><strong>Father's Name:</strong> ${student.fatherName || 'Not specified'}</p>
-                    <p><strong>Mobile:</strong> ${student.mobile || 'Not specified'}</p>
-                    <p><strong>Age:</strong> ${student.age || 'Not specified'}</p>
-                    <p><strong>Address:</strong> ${student.address || 'Not specified'}</p>
-                </div>
-                
-                <div style="margin-bottom: 25px;">
-                    <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 5px;">Fee Summary</h2>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                        <tr style="background-color: #f0f0f0;"><td style="padding: 10px;"><strong>Total Paid:</strong></td><td style="padding: 10px;"><strong>₹${totalPaid}</strong></td></tr>
-                        <tr><td style="padding: 10px;"><strong>Total Fee:</strong></td><td style="padding: 10px;"><strong>₹${totalFee}</strong></td></tr>
-                        <tr style="background-color: #f0f0f0;"><td style="padding: 10px;"><strong>Balance:</strong></td><td style="padding: 10px; color: ${balance > 0 ? '#dc2626' : '#10b981'};"><strong>₹${balance}</strong></td></tr>
-                    </table>
-                </div>
-                
-                ${previousYearBill > 0 ? `
-                    <div style="margin-bottom: 25px;">
-                        <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 5px;">Previous Year Bill</h2>
-                        <p><strong>Previous Year's Month Bill:</strong> ₹${previousYearBill}</p>
-                    </div>
-                ` : ''}
-                
-                <div style="margin-bottom: 25px;">
-                    <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 5px;">Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h2>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                        <thead>
-                            <tr style="background-color: #1f4f5e; color: white;">
-                                <th style="padding: 10px; text-align: left;">Month</th>
-                                <th style="padding: 10px; text-align: left;">Amount</th>
-                                <th style="padding: 10px; text-align: left;">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                    <div style="text-align: right; margin-top: 15px;"><strong>Total Current Year Fee: ₹${totalFee}</strong></div>
-                </div>
-                
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
-                    <p>Generated by KVM Classes Student Management System</p>
-                    <p>${new Date().toLocaleDateString()}</p>
-                </div>
-            `;
-            
-            const opt = {
-                margin: [0.5, 0.5, 0.5, 0.5],
-                filename: `${student.name}_profile.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, letterRendering: true },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-            
-            await html2pdf().set(opt).from(element).save();
-            hideLoadingScreen();
-            
-            // Also try to share if on mobile
-            if (navigator.share) {
-                setTimeout(() => {
-                    navigator.share({
-                        title: `${student.name} - Student Profile`,
-                        text: `Check out ${student.name}'s fee details`,
-                        url: window.location.href
-                    }).catch(() => {});
-                }, 500);
-            }
-            
-        } catch (error) {
-            console.error("PDF generation error:", error);
-            alert("Error generating PDF. Please try again.");
-            hideLoadingScreen();
         }
-    }, 100);
+        if (!rows) rows = '<tr><td colspan="3" style="padding: 10px; text-align: center;">No fees recorded</td></tr>';
+        
+        const photoUrl = getStudentPhotoUrl(student);
+        
+        // Create a temporary div for PDF content
+        const element = document.createElement('div');
+        element.style.padding = '30px';
+        element.style.fontFamily = 'Arial, sans-serif';
+        element.style.backgroundColor = 'white';
+        element.style.color = '#333';
+        element.style.maxWidth = '800px';
+        element.style.margin = '0 auto';
+        element.innerHTML = `
+            <div style="text-align: center; margin-bottom: 30px;">
+                <img src="${photoUrl}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #1f4f5e;" onerror="this.src='${getDefaultAvatar(student.name)}'">
+                <h1 style="margin-top: 15px; color: #1f4f5e;">${student.name}</h1>
+                <p style="font-size: 16px;"><strong>Class:</strong> ${student.className} | <strong>Roll Number:</strong> ${student.roll}</p>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+                <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Personal Information</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 8px 0;"><strong>Father's Name:</strong></td><td>${student.fatherName || 'Not specified'}</td></tr>
+                    <tr><td style="padding: 8px 0;"><strong>Mobile:</strong></td><td>${student.mobile || 'Not specified'}</td></tr>
+                    <tr><td style="padding: 8px 0;"><strong>Age:</strong></td><td>${student.age || 'Not specified'}</td></tr>
+                    <tr><td style="padding: 8px 0;"><strong>Address:</strong></td><td>${student.address || 'Not specified'}</td></tr>
+                </table>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+                <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Fee Summary</h2>
+                <table style="width: 100%; border-collapse: collapse; background-color: #f9f9f9;">
+                    <tr><td style="padding: 12px;"><strong>Total Paid:</strong></td><td style="padding: 12px; text-align: right;"><strong style="color: #10b981;">₹${totalPaid}</strong></td></tr>
+                    <tr><td style="padding: 12px;"><strong>Total Fee:</strong></td><td style="padding: 12px; text-align: right;"><strong>₹${totalFee}</strong></td></tr>
+                    <tr><td style="padding: 12px;"><strong>Balance:</strong></td><td style="padding: 12px; text-align: right;"><strong style="color: ${balance > 0 ? '#dc2626' : '#10b981'};">₹${balance}</strong></td></tr>
+                </table>
+            </div>
+            
+            ${previousYearBill > 0 ? `
+                <div style="margin-bottom: 25px;">
+                    <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Previous Year Bill</h2>
+                    <table style="width: 100%;">
+                        <tr><td style="padding: 8px 0;"><strong>Previous Year's Month Bill:</strong></td><td style="text-align: right;">₹${previousYearBill}</td></tr>
+                    </table>
+                </div>
+            ` : ''}
+            
+            <div style="margin-bottom: 25px;">
+                <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #1f4f5e; color: white;">
+                            <th style="padding: 10px; text-align: left; border: 1px solid #1f4f5e;">Month</th>
+                            <th style="padding: 10px; text-align: right; border: 1px solid #1f4f5e;">Amount</th>
+                            <th style="padding: 10px; text-align: center; border: 1px solid #1f4f5e;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div style="text-align: right; margin-top: 15px; padding-top: 10px; border-top: 2px solid #ddd;">
+                    <strong>Total Current Year Fee: ₹${totalFee}</strong>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 11px;">
+                <p>Generated by KVM Classes Student Management System</p>
+                <p>${new Date().toLocaleString()}</p>
+            </div>
+        `;
+        
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: `${student.name}_profile.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        
+        await html2pdf().set(opt).from(element).save();
+        hideLoadingScreen();
+        
+        // Show success message
+        alert("PDF downloaded successfully!");
+        
+    } catch (error) {
+        console.error("PDF generation error:", error);
+        alert("Error generating PDF. Please try again.");
+        hideLoadingScreen();
+    }
 };
 
 // ======================
@@ -324,11 +328,11 @@ function displayFullStudentPage(student) {
     const previousYearBill = student.previousYearBill || 0;
     const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
     const totalPaid = monthlyPaid + previousYearBill;
-    const balance = totalFee - monthlyPaid;
+    const balance = totalFee - totalPaid;
     
     let currentYearHTML = '';
     for (let i = 0; i < MONTHS.length; i++) {
-        const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: false };
+        const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
         if (f.amount > 0) {
             currentYearHTML += `
                 <div style="background: var(--color-surface); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -347,7 +351,7 @@ function displayFullStudentPage(student) {
                 <button class="button button-secondary" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="button button-warning" onclick="editStudent('${student.id}')"><i class="fas fa-edit"></i> Edit</button>
                 <button class="button button-danger" onclick="deleteStudent('${student.id}', '${student.name.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> Delete</button>
-                <button class="button button-primary" onclick="downloadAndSharePDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-download"></i> Download & Share</button>
+                <button class="button button-primary" onclick="downloadAndSharePDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-download"></i> Download PDF</button>
             </div>
             <div class="student-profile-card" style="background: var(--color-surface); border-radius: 12px; overflow: hidden;">
                 <div class="student-header-full" style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); color: white; padding: 24px; text-align: center;">
@@ -701,7 +705,7 @@ window.showAddStudentForm = function(isEditMode = false) {
                 <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
                     <input type="number" id="${MONTHS[i]}Amount" placeholder="Amount (₹)" min="0" value="0" style="flex: 2;">
                     <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="checkbox" id="${MONTHS[i]}Paid"> Paid
+                        <input type="checkbox" id="${MONTHS[i]}Paid" checked> Paid (Uncheck if not paid)
                     </label>
                 </div>
             </div>
@@ -757,6 +761,7 @@ window.showAddStudentForm = function(isEditMode = false) {
                 </div>
                 <div class="fee-form-section">
                     <h3><i class="fas fa-calendar-alt"></i> Monthly Fees (Current Year)</h3>
+                    <p><small>✅ Checkbox is checked by default (Paid). Uncheck if not paid.</small></p>
                     ${monthlyFields}
                 </div>
                 <div class="action-buttons">
@@ -823,7 +828,7 @@ function populateEditForm(student) {
             const amountInput = document.getElementById(month + 'Amount');
             const paidCheckbox = document.getElementById(month + 'Paid');
             if (amountInput) amountInput.value = monthlyFees[month]?.amount || 0;
-            if (paidCheckbox) paidCheckbox.checked = monthlyFees[month]?.paid === true;
+            if (paidCheckbox) paidCheckbox.checked = monthlyFees[month]?.paid !== false; // Default true
         }
         console.log("Edit form populated successfully");
     } catch (error) {
