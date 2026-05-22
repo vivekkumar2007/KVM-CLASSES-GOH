@@ -13,7 +13,6 @@ const firebaseConfig = {
     measurementId: "G-FHJGBNFKH8"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -40,22 +39,13 @@ const studentList = document.getElementById("studentList");
 const studentDetail = document.getElementById("studentDetail");
 const addStudentForm = document.getElementById("addStudentForm");
 
-// Class list
-const CLASSES = [
-    "Class 3 and 4",
-    "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10"
-];
-
-// Months
+const CLASSES = ["Class 3 and 4", "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10"];
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const CURRENT_YEAR = new Date().getFullYear();
 const NEXT_YEAR = CURRENT_YEAR + 1;
 
-// ======================
-// LOADING FUNCTIONS
-// ======================
-
+// Loading Functions
 function showCustomLoading(message) {
     const msgEl = document.getElementById('loadingMessage');
     if (msgEl) msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${message}`;
@@ -66,10 +56,7 @@ function hideLoadingScreen() {
     loadingScreen.style.display = 'none';
 }
 
-// ======================
-// IMAGE FUNCTIONS
-// ======================
-
+// Image Functions
 window.handleImageError = function(img, name) {
     img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=150&bold=true`;
     img.onerror = null;
@@ -90,10 +77,7 @@ function getStudentPhotoUrl(student) {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(student?.name || '')}&background=random&color=fff&size=150&bold=true`;
 }
 
-// ======================
-// FEE FUNCTIONS
-// ======================
-
+// Fee Functions
 function normalizeMonthlyFees(oldFees) {
     const result = {};
     for (const m of MONTHS) {
@@ -115,32 +99,28 @@ function calculateFeeTotals(monthlyFees) {
     return { totalFee, totalPaid };
 }
 
-// ======================
-// RECEIPT / PRINT FUNCTION
-// ======================
-
-window.downloadStudentPDF = function(student) {
+// Print Receipt Function - WORKING
+window.printStudentReceipt = function(student) {
     showCustomLoading("Preparing Receipt...");
     
     setTimeout(() => {
         try {
             const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
             const previousYearBill = student.previousYearBill || 0;
+            const isPreviousYearPaid = student.previousYearPaid === true;
             const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
-            const totalPaid = monthlyPaid + previousYearBill;
-            const balance = totalFee - totalPaid;
+            const totalPaid = monthlyPaid + (isPreviousYearPaid ? previousYearBill : 0);
+            const amountDue = totalFee - monthlyPaid + (isPreviousYearPaid ? 0 : previousYearBill);
             
             let feeRows = '';
             for (let i = 0; i < MONTHS.length; i++) {
                 const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
                 if (f.amount > 0) {
                     feeRows += `
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${MONTH_NAMES[i]}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">₹${f.amount}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">
-                                ${f.paid ? '<span style="color: #10b981;">✓ PAID</span>' : '<span style="color: #dc2626;">✗ NOT PAID</span>'}
-                            </td>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 10px; border: 1px solid #ddd;">${MONTH_NAMES[i]}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${f.amount}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${f.paid ? '✓ PAID' : '✗ NOT PAID'}</td>
                         </tr>
                     `;
                 }
@@ -179,7 +159,7 @@ window.downloadStudentPDF = function(student) {
             text-align: center;
         }
         .receipt-header h1 { font-size: 28px; margin-bottom: 5px; }
-        .receipt-header p { opacity: 0.9; font-size: 14px; }
+        .receipt-header p { opacity: 0.9; }
         .receipt-body { padding: 30px; }
         .student-info {
             background: #f8f9fa;
@@ -187,72 +167,20 @@ window.downloadStudentPDF = function(student) {
             padding: 20px;
             margin-bottom: 25px;
         }
-        .student-info h3 { color: #1f4f5e; margin-bottom: 15px; font-size: 18px; }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-        }
-        .info-item {
-            display: flex;
-            align-items: baseline;
-        }
-        .info-label {
-            font-weight: 600;
-            width: 110px;
-            color: #555;
-            font-size: 14px;
-        }
-        .info-value {
-            color: #333;
-            font-size: 14px;
-        }
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         .fee-summary {
             background: linear-gradient(135deg, #f0fdf4, #dcfce7);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 25px;
         }
-        .summary-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #166534;
-            margin-bottom: 15px;
-        }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-        .summary-card {
-            text-align: center;
-        }
-        .summary-label {
-            font-size: 13px;
-            color: #166534;
-            display: block;
-            margin-bottom: 5px;
-        }
-        .summary-amount {
-            font-size: 22px;
-            font-weight: bold;
-        }
+        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center; }
+        .summary-amount { font-size: 24px; font-weight: bold; }
         .amount-paid { color: #10b981; }
         .amount-due { color: #dc2626; }
-        .fee-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .fee-table th {
-            background: #1f4f5e;
-            color: white;
-            padding: 12px;
-            text-align: left;
-        }
-        .fee-table td {
-            padding: 10px;
-        }
+        .fee-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .fee-table th { background: #1f4f5e; color: white; padding: 12px; text-align: left; border: 1px solid #1f4f5e; }
+        .fee-table td { padding: 10px; }
         .previous-bill {
             background: #fef3c7;
             border-radius: 12px;
@@ -261,22 +189,24 @@ window.downloadStudentPDF = function(student) {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .total-section {
             margin-top: 20px;
             padding-top: 15px;
             border-top: 2px solid #e5e7eb;
             text-align: right;
-            font-size: 18px;
             font-weight: bold;
+            font-size: 16px;
         }
         .receipt-footer {
             background: #f8f9fa;
             padding: 20px;
             text-align: center;
-            border-top: 1px solid #e5e7eb;
             font-size: 12px;
             color: #666;
+            border-top: 1px solid #e5e7eb;
         }
         .print-btn {
             display: block;
@@ -287,15 +217,20 @@ window.downloadStudentPDF = function(student) {
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
             cursor: pointer;
-            text-align: center;
+            font-size: 16px;
         }
         .print-btn:hover { background: #0d2f3a; }
         @media print {
-            body { background: white; padding: 0; }
+            body { background: white; padding: 0; margin: 0; }
             .print-btn { display: none; }
-            .receipt { box-shadow: none; border-radius: 0; }
+            .receipt { box-shadow: none; border-radius: 0; margin: 0; }
+        }
+        @media (max-width: 600px) {
+            .info-grid { grid-template-columns: 1fr; }
+            .summary-grid { grid-template-columns: 1fr; gap: 10px; }
+            .previous-bill { flex-direction: column; text-align: center; }
+            .receipt-body { padding: 20px; }
         }
     </style>
 </head>
@@ -303,41 +238,58 @@ window.downloadStudentPDF = function(student) {
     <div class="receipt">
         <div class="receipt-header">
             <h1>🎓 KVM CLASSES</h1>
-            <p>Goh Aurangabad - Student Management System</p>
-            <p>Fee Receipt</p>
+            <p>Goh Aurangabad - Fee Receipt</p>
         </div>
         <div class="receipt-body">
             <div class="student-info">
-                <h3>📋 STUDENT INFORMATION</h3>
+                <h3 style="margin-bottom: 15px;">📋 STUDENT INFORMATION</h3>
                 <div class="info-grid">
-                    <div class="info-item"><span class="info-label">Student Name:</span><span class="info-value">${escapeHtml(student.name)}</span></div>
-                    <div class="info-item"><span class="info-label">Class:</span><span class="info-value">${student.className}</span></div>
-                    <div class="info-item"><span class="info-label">Roll Number:</span><span class="info-value">${student.roll}</span></div>
-                    <div class="info-item"><span class="info-label">Father's Name:</span><span class="info-value">${escapeHtml(student.fatherName) || 'Not specified'}</span></div>
-                    <div class="info-item"><span class="info-label">Mobile:</span><span class="info-value">${escapeHtml(student.mobile) || 'Not specified'}</span></div>
-                    <div class="info-item"><span class="info-label">Address:</span><span class="info-value">${escapeHtml(student.address) || 'Not specified'}</span></div>
+                    <div><strong>Name:</strong> ${escapeHtml(student.name)}</div>
+                    <div><strong>Class:</strong> ${student.className}</div>
+                    <div><strong>Roll No:</strong> ${student.roll}</div>
+                    <div><strong>Father's Name:</strong> ${escapeHtml(student.fatherName) || 'N/A'}</div>
+                    <div><strong>Mobile:</strong> ${escapeHtml(student.mobile) || 'N/A'}</div>
+                    <div><strong>Address:</strong> ${escapeHtml(student.address) || 'N/A'}</div>
                 </div>
             </div>
             <div class="fee-summary">
-                <div class="summary-title">💰 FEE SUMMARY</div>
+                <h3 style="margin-bottom: 15px;">💰 FEE SUMMARY</h3>
                 <div class="summary-grid">
-                    <div class="summary-card"><span class="summary-label">Total Paid</span><span class="summary-amount amount-paid">₹${totalPaid}</span></div>
-                    <div class="summary-card"><span class="summary-label">Total Fee</span><span class="summary-amount">₹${totalFee}</span></div>
-                    <div class="summary-card"><span class="summary-label">Balance</span><span class="summary-amount ${balance > 0 ? 'amount-due' : 'amount-paid'}">₹${balance}</span></div>
+                    <div><div>Total Paid</div><div class="summary-amount amount-paid">₹${totalPaid}</div></div>
+                    <div><div>Total Fee</div><div class="summary-amount">₹${totalFee}</div></div>
+                    <div><div>Amount Due</div><div class="summary-amount amount-due">₹${amountDue}</div></div>
                 </div>
             </div>
-            ${previousYearBill > 0 ? `<div class="previous-bill"><span>📅 Previous Year Bill</span><strong>₹${previousYearBill}</strong></div>` : ''}
-            <h3 style="margin: 20px 0 10px; color: #1f4f5e;">📆 MONTHLY FEE BREAKDOWN (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
-            <table class="fee-table"><thead><tr><th>Month</th><th style="text-align: right;">Amount</th><th style="text-align: center;">Status</th></tr></thead><tbody>${feeRows}</tbody></table>
+            ${previousYearBill > 0 ? `
+            <div class="previous-bill">
+                <span><strong>📅 Previous Year Bill</strong></span>
+                <span><strong>₹${previousYearBill}</strong></span>
+                <span>${isPreviousYearPaid ? '✅ PAID' : '❌ NOT PAID'}</span>
+            </div>
+            ` : ''}
+            <h3 style="margin: 20px 0 15px;">📆 Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
+            <table class="fee-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Month</th>
+                        <th style="width: 30%; text-align: right;">Amount</th>
+                        <th style="width: 30%; text-align: center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>${feeRows}</tbody>
+            </table>
             <div class="total-section">Total Current Year Fee: ₹${totalFee}</div>
         </div>
         <div class="receipt-footer">
-            <p>This is a computer generated receipt | Valid without signature</p>
             <p>Generated on: ${new Date().toLocaleString()}</p>
+            <p>This is a computer generated receipt | Valid without signature</p>
         </div>
-        <button class="print-btn" onclick="window.print(); setTimeout(() => window.close(), 1000);">🖨️ Print / Save as PDF</button>
+        <button class="print-btn" onclick="window.print();">🖨️ Print / Save as PDF</button>
     </div>
-    <script>setTimeout(function() { window.print(); setTimeout(function() { window.close(); }, 1000); }, 500);</script>
+    <script>
+        // Auto open print dialog
+        setTimeout(function() { window.print(); }, 500);
+    </script>
 </body>
 </html>`;
             
@@ -363,10 +315,7 @@ function escapeHtml(str) {
     });
 }
 
-// ======================
-// NAVIGATION FUNCTIONS
-// ======================
-
+// Navigation Functions
 window.navigateToClass = function(className) {
     window.location.href = `?class=${encodeURIComponent(className)}`;
 };
@@ -411,81 +360,106 @@ async function loadSingleStudentPage(studentId) {
 }
 
 function displayFullStudentPage(student) {
-    // 🔹 MOBILE FULL-SCREEN FIX (only JS, no CSS change)
+    // Mobile fix - prevent horizontal scroll
     if (window.innerWidth <= 768) {
-        // Make student list container full-screen overlay
-        const container = document.querySelector('.content-wrapper');
-        const studentSection = document.querySelector('.student-section');
-        if (container) container.style.minHeight = '100vh';
-        if (studentSection) studentSection.style.minHeight = '100vh';
-        // Scroll to top
+        document.body.style.overflowX = 'hidden';
+        const container = document.querySelector('.container');
+        if (container) container.style.overflowX = 'hidden';
         window.scrollTo(0, 0);
     }
 
     const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
     const previousYearBill = student.previousYearBill || 0;
+    const isPreviousYearPaid = student.previousYearPaid === true;
     const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
-    const totalPaid = monthlyPaid + previousYearBill;
-    const balance = totalFee - totalPaid;
+    const totalPaid = monthlyPaid + (isPreviousYearPaid ? previousYearBill : 0);
+    const amountDue = totalFee - monthlyPaid + (isPreviousYearPaid ? 0 : previousYearBill);
     
+    // VERTICAL LAYOUT FOR MOBILE - FIXED
     let currentYearHTML = '';
     for (let i = 0; i < MONTHS.length; i++) {
         const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
         if (f.amount > 0) {
             currentYearHTML += `
-                <div style="background: var(--color-surface); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span><strong>${MONTH_NAMES[i]}</strong></span>
-                    <span>₹${f.amount}</span>
-                    <span>${f.paid ? '✅ Paid' : '❌ Not Paid'}</span>
+                <div style="background: var(--color-surface); padding: 14px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; text-align: center; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <span style="font-weight: bold; font-size: 16px;">${MONTH_NAMES[i]}</span>
+                    <span style="font-size: 20px; font-weight: bold; color: #1f4f5e;">₹${f.amount}</span>
+                    <span style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        ${f.paid ? '✅ <span style="color: #10b981; font-weight: 500;">Paid</span>' : '❌ <span style="color: #dc2626; font-weight: 500;">Not Paid</span>'}
+                    </span>
                 </div>
             `;
         }
     }
-    if (!currentYearHTML) currentYearHTML = '<p>No fees recorded for current year</p>';
+    if (!currentYearHTML) currentYearHTML = '<p style="text-align: center; padding: 20px;">No fees recorded for current year</p>';
     
     studentList.innerHTML = `
-        <div>
+        <div style="width: 100%; max-width: 100%; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; flex-wrap: wrap;">
                 <button class="button button-secondary" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="button button-warning" onclick="editStudent('${student.id}')"><i class="fas fa-edit"></i> Edit</button>
                 <button class="button button-danger" onclick="deleteStudent('${student.id}', '${student.name.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> Delete</button>
-                <button class="button button-primary" onclick="downloadStudentPDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-receipt"></i> Print Receipt</button>
+                <button class="button button-primary" onclick="printStudentReceipt(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-receipt"></i> Print Receipt</button>
             </div>
-            <div style="background: var(--color-surface); border-radius: 12px; overflow: hidden;">
+            <div style="background: var(--color-surface); border-radius: 12px; overflow: hidden; width: 100%;">
                 <div style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); color: white; padding: 24px; text-align: center;">
-                    <img src="${getStudentPhotoUrl(student)}" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid white; margin-bottom: 16px;" onerror="handleImageError(this, '${student.name.replace(/'/g, "\\'")}')">
-                    <h2 style="color: white;">${escapeHtml(student.name)}</h2>
+                    <img src="${getStudentPhotoUrl(student)}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid white; margin-bottom: 16px;" onerror="handleImageError(this, '${student.name.replace(/'/g, "\\'")}')">
+                    <h2 style="color: white; font-size: 20px; margin: 10px 0 5px;">${escapeHtml(student.name)}</h2>
                     <p><strong>Class:</strong> ${student.className} | <strong>Roll:</strong> ${student.roll}</p>
                 </div>
-                <div style="padding: 24px;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                        <div><strong>Father's Name:</strong> ${escapeHtml(student.fatherName) || "Not specified"}</div>
-                        <div><strong>Mobile:</strong> ${escapeHtml(student.mobile) || "Not specified"}</div>
-                        <div><strong>Age:</strong> ${student.age || "Not specified"}</div>
-                        <div><strong>Address:</strong> ${escapeHtml(student.address) || "Not specified"}</div>
+                <div style="padding: 20px;">
+                    <!-- Personal Information -->
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--color-primary);">📋 Personal Information</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div><strong>Father's Name:</strong> ${escapeHtml(student.fatherName) || "Not specified"}</div>
+                            <div><strong>Mobile:</strong> ${escapeHtml(student.mobile) || "Not specified"}</div>
+                            <div><strong>Age:</strong> ${student.age || "Not specified"}</div>
+                            <div><strong>Address:</strong> ${escapeHtml(student.address) || "Not specified"}</div>
+                        </div>
                     </div>
-                    <div style="background: var(--color-secondary); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-                        <h3>Fee Summary</h3>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-                            <div style="background: var(--color-surface); padding: 16px; border-radius: 8px; text-align: center;">
-                                <span style="display: block;">Total Paid</span>
-                                <span style="font-size: 24px; font-weight: bold; color: #10b981;">₹${totalPaid}</span>
+                    
+                    <!-- Fee Summary -->
+                    <div style="background: var(--color-secondary); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--color-primary);">💰 Fee Summary</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="background: var(--color-surface); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Total Paid:</span>
+                                <span style="font-weight: bold; color: #10b981;">₹${totalPaid}</span>
                             </div>
-                            <div style="background: var(--color-surface); padding: 16px; border-radius: 8px; text-align: center;">
-                                <span style="display: block;">Total Fee</span>
-                                <span style="font-size: 24px; font-weight: bold;">₹${totalFee}</span>
+                            <div style="background: var(--color-surface); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Total Fee:</span>
+                                <span style="font-weight: bold;">₹${totalFee}</span>
                             </div>
-                            <div style="background: var(--color-surface); padding: 16px; border-radius: 8px; text-align: center;">
-                                <span style="display: block;">Balance</span>
-                                <span style="font-size: 24px; font-weight: bold; ${balance > 0 ? 'color: #ef4444;' : 'color: #10b981;'}">₹${balance}</span>
+                            <div style="background: var(--color-surface); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Amount Due:</span>
+                                <span style="font-weight: bold; ${amountDue > 0 ? 'color: #ef4444;' : 'color: #10b981;'}">₹${amountDue}</span>
                             </div>
                         </div>
                     </div>
-                    ${previousYearBill > 0 ? `<div style="background: var(--color-secondary); padding: 20px; border-radius: 12px; margin-bottom: 24px;"><h3>Previous Year Bill</h3><div>Previous Year's Month Bill: ₹${previousYearBill}</div></div>` : ''}
-                    <div style="background: var(--color-secondary); padding: 20px; border-radius: 12px;">
-                        <h3>Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
-                        <div>${currentYearHTML}</div>
-                        <div style="margin-top: 16px; text-align: right;"><strong>Total Fee: ₹${totalFee}</strong></div>
+                    
+                    <!-- Previous Year Bill -->
+                    ${previousYearBill > 0 ? `
+                    <div style="background: var(--color-secondary); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--color-primary);">📅 Previous Year Bill</h3>
+                        <div style="background: var(--color-surface); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span><strong>Previous Year Bill:</strong> ₹${previousYearBill}</span>
+                            <span style="display: flex; align-items: center; gap: 5px;">
+                                ${isPreviousYearPaid ? '✅ <span style="color: #10b981;">Paid</span>' : '❌ <span style="color: #dc2626;">Not Paid</span>'}
+                            </span>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Current Year Fees - VERTICAL LAYOUT -->
+                    <div style="background: var(--color-secondary); padding: 16px; border-radius: 12px;">
+                        <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--color-primary);">📆 Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            ${currentYearHTML}
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--color-border); text-align: right;">
+                            <strong>Total Fee: ₹${totalFee}</strong>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -511,10 +485,7 @@ function showErrorPage(message) {
     showMainApp();
 }
 
-// ======================
-// AUTHENTICATION
-// ======================
-
+// Authentication
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -571,10 +542,7 @@ function showLoginLoading(show) {
 function showLoginError(msg) { loginError.textContent = msg; loginError.style.display = 'block'; }
 function hideLoginError() { loginError.style.display = 'none'; }
 
-// ======================
-// RENDER CLASSES & STUDENTS
-// ======================
-
+// Render Classes
 function renderClasses() {
     studentList.innerHTML = '';
     studentDetail.innerHTML = '';
@@ -625,10 +593,7 @@ window.filterStudents = function() {
     });
 };
 
-// ======================
-// STUDENT FORM
-// ======================
-
+// Student Form
 window.showAddStudentForm = function(isEdit = false) {
     addStudentForm.innerHTML = '';
     const classOptions = CLASSES.map(c => `<option value="${c}" ${c===editingClass?'selected':''}>${c}</option>`).join('');
@@ -656,9 +621,25 @@ window.showAddStudentForm = function(isEdit = false) {
                 <div class="form-field"><label>Age</label><input type="number" id="age"></div>
                 <div class="form-field"><label>Address</label><textarea id="address" rows="2"></textarea></div>
                 <div class="form-field"><label>Photo URL</label><input type="url" id="photo" placeholder="Google Drive link"><small>Paste Google Drive share link</small></div>
-                <div class="fee-form-section"><h3>Previous Year Bill</h3><div><label>Previous Year's Month Bill (₹)</label><input type="number" id="previousYearBill" min="0" value="0"></div></div>
-                <div class="fee-form-section"><h3>Monthly Fees (Current Year)</h3><p><small>✅ Checked = Paid, Uncheck = Not Paid</small></p>${monthlyHtml}</div>
-                <div class="action-buttons"><button type="submit" class="button button-primary"><i class="fas fa-save"></i> ${isEdit ? 'Update' : 'Add'}</button><button type="button" class="button button-warning" onclick="hideAddStudentForm()">Cancel</button></div>
+                <div class="fee-form-section">
+                    <h3><i class="fas fa-history"></i> Previous Year Bill</h3>
+                    <div class="form-field">
+                        <label>Previous Year's Month Bill (₹)</label>
+                        <input type="number" id="previousYearBill" min="0" value="0">
+                    </div>
+                    <div class="form-field">
+                        <label><input type="checkbox" id="previousYearPaid"> Previous Year Bill Paid</label>
+                    </div>
+                </div>
+                <div class="fee-form-section">
+                    <h3><i class="fas fa-calendar-alt"></i> Monthly Fees (Current Year)</h3>
+                    <p><small>✅ Checked = Paid, Uncheck = Not Paid</small></p>
+                    ${monthlyHtml}
+                </div>
+                <div class="action-buttons">
+                    <button type="submit" class="button button-primary"><i class="fas fa-save"></i> ${isEdit ? 'Update' : 'Add'}</button>
+                    <button type="button" class="button button-warning" onclick="hideAddStudentForm()">Cancel</button>
+                </div>
             </form>
         </div>
     `;
@@ -693,6 +674,7 @@ window.editStudent = async function(studentId) {
                 document.getElementById('address').value = student.address || '';
                 document.getElementById('photo').value = student.photo || '';
                 document.getElementById('previousYearBill').value = student.previousYearBill || 0;
+                document.getElementById('previousYearPaid').checked = student.previousYearPaid === true;
                 const fees = normalizeMonthlyFees(student.monthlyFees);
                 for (const m of MONTHS) {
                     const amt = document.getElementById(m+'Amount');
@@ -721,6 +703,7 @@ async function handleFormSubmit(e) {
         const address = document.getElementById('address').value.trim();
         const photo = document.getElementById('photo').value.trim();
         const previousYearBill = parseInt(document.getElementById('previousYearBill').value) || 0;
+        const previousYearPaid = document.getElementById('previousYearPaid').checked;
         if (!className || !name || !roll) throw new Error("Required fields missing");
         const monthlyFees = {};
         for (const m of MONTHS) {
@@ -728,7 +711,7 @@ async function handleFormSubmit(e) {
             const paid = document.getElementById(m+'Paid').checked;
             monthlyFees[m] = { amount, paid };
         }
-        const data = { name, fatherName, mobile, roll, age, address, photo, monthlyFees, previousYearBill, className, updatedAt: serverTimestamp(), updatedBy: currentUser.uid };
+        const data = { name, fatherName, mobile, roll, age, address, photo, monthlyFees, previousYearBill, previousYearPaid, className, updatedAt: serverTimestamp(), updatedBy: currentUser.uid };
         if (editingStudentId && currentForm === 'edit') {
             await updateDoc(doc(db,"students",editingStudentId), data);
             alert("Student updated successfully!");
@@ -751,10 +734,7 @@ window.deleteStudent = async function(studentId, studentName) {
     }
 };
 
-// ======================
-// INITIALIZE
-// ======================
-
+// Initialize
 showCustomLoading("Initializing KVM Classes...");
 setTimeout(() => {
     if (authSection.style.display !== 'flex' && mainApp.style.display !== 'block') {
