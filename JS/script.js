@@ -616,8 +616,8 @@ function showAddStudentForm(isEditMode = false) {
                 </div>
                 
                 <div class="form-field">
-                    <label for="age">Age *</label>
-                    <input type="number" id="age" placeholder="Enter age" required min="5" max="20">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" placeholder="Enter age" max="20">
                 </div>
                 
                 <div class="form-field">
