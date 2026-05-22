@@ -125,11 +125,11 @@ function normalizeMonthlyFees(oldFees) {
     for (const month of MONTHS) {
         const val = oldFees[month];
         if (val === undefined || val === null) {
-            newFees[month] = { amount: 0, paid: true }; // Default paid = true
+            newFees[month] = { amount: 0, paid: true };
         } else if (typeof val === 'number') {
-            newFees[month] = { amount: val, paid: true }; // Default paid = true
+            newFees[month] = { amount: val, paid: true };
         } else if (typeof val === 'object' && val !== null) {
-            newFees[month] = { amount: val.amount || 0, paid: val.paid !== false }; // Default paid = true unless explicitly false
+            newFees[month] = { amount: val.amount || 0, paid: val.paid !== false };
         } else {
             newFees[month] = { amount: 0, paid: true };
         }
@@ -150,120 +150,184 @@ function calculateFeeTotals(monthlyFees) {
 }
 
 // ======================
-// DOWNLOAD & SHARE PDF FUNCTION - FIXED
+// PDF GENERATION FUNCTION - WORKING VERSION
 // ======================
 
-window.downloadAndSharePDF = async function(student) {
-    // Show loading
+window.downloadStudentPDF = async function(student) {
     showCustomLoading("Generating PDF...");
     
     try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        
+        // Calculate fee totals
         const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
         const previousYearBill = student.previousYearBill || 0;
         const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
         const totalPaid = monthlyPaid + previousYearBill;
-        const balance = totalFee - monthlyPaid;
+        const balance = totalFee - totalPaid;
         
-        let rows = '';
+        // Get photo as data URL
+        const photoUrl = getStudentPhotoUrl(student);
+        let photoData = null;
+        
+        // Try to load photo
+        try {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = photoUrl;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            photoData = canvas.toDataURL('image/jpeg', 0.7);
+        } catch(e) {
+            console.log("Could not load image, using default");
+        }
+        
+        // Start PDF
+        let y = 20;
+        
+        // Header with photo
+        if (photoData) {
+            doc.addImage(photoData, 'JPEG', 80, y, 50, 50);
+            y += 55;
+        } else {
+            doc.setFontSize(24);
+            doc.setTextColor(31, 79, 94);
+            doc.text(student.name, 105, y + 20, { align: 'center' });
+            y += 30;
+        }
+        
+        // Student Name
+        doc.setFontSize(20);
+        doc.setTextColor(31, 79, 94);
+        doc.text(student.name, 105, y, { align: 'center' });
+        y += 10;
+        
+        // Class and Roll
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Class: ${student.className} | Roll No: ${student.roll}`, 105, y, { align: 'center' });
+        y += 15;
+        
+        // Personal Information Section
+        doc.setFontSize(14);
+        doc.setTextColor(31, 79, 94);
+        doc.setFont(undefined, 'bold');
+        doc.text("Personal Information", 20, y);
+        y += 8;
+        
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Father's Name: ${student.fatherName || 'Not specified'}`, 20, y);
+        y += 7;
+        doc.text(`Mobile: ${student.mobile || 'Not specified'}`, 20, y);
+        y += 7;
+        doc.text(`Age: ${student.age || 'Not specified'}`, 20, y);
+        y += 7;
+        doc.text(`Address: ${student.address || 'Not specified'}`, 20, y);
+        y += 15;
+        
+        // Fee Summary Section
+        doc.setFontSize(14);
+        doc.setTextColor(31, 79, 94);
+        doc.setFont(undefined, 'bold');
+        doc.text("Fee Summary", 20, y);
+        y += 10;
+        
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Total Paid: ₹${totalPaid}`, 20, y);
+        doc.text(`Total Fee: ₹${totalFee}`, 120, y);
+        y += 7;
+        doc.text(`Balance: ₹${balance}`, 20, y);
+        y += 15;
+        
+        // Previous Year Bill
+        if (previousYearBill > 0) {
+            doc.setFontSize(14);
+            doc.setTextColor(31, 79, 94);
+            doc.setFont(undefined, 'bold');
+            doc.text("Previous Year Bill", 20, y);
+            y += 8;
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Previous Year's Month Bill: ₹${previousYearBill}`, 20, y);
+            y += 15;
+        }
+        
+        // Current Year Fees
+        doc.setFontSize(14);
+        doc.setTextColor(31, 79, 94);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})`, 20, y);
+        y += 10;
+        
+        // Monthly fees table
+        let tableData = [];
         for (let i = 0; i < MONTHS.length; i++) {
             const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
             if (f.amount > 0) {
-                rows += `
-                    <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${MONTH_NAMES[i]}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">₹${f.amount}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${f.paid ? '✅ Paid' : '❌ Not Paid'}</td>
-                    </tr>
-                `;
+                tableData.push([
+                    MONTH_NAMES[i],
+                    `₹${f.amount}`,
+                    f.paid ? '✓ Paid' : '✗ Not Paid'
+                ]);
             }
         }
-        if (!rows) rows = '<tr><td colspan="3" style="padding: 10px; text-align: center;">No fees recorded</td></tr>';
         
-        const photoUrl = getStudentPhotoUrl(student);
+        if (tableData.length > 0) {
+            doc.autoTable({
+                startY: y,
+                head: [['Month', 'Amount', 'Status']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [31, 79, 94], textColor: 255, fontSize: 11 },
+                bodyStyles: { fontSize: 10 },
+                margin: { left: 20, right: 20 }
+            });
+            y = doc.lastAutoTable.finalY + 10;
+        } else {
+            doc.text("No fees recorded for current year", 20, y);
+            y += 15;
+        }
         
-        // Create a temporary div for PDF content
-        const element = document.createElement('div');
-        element.style.padding = '30px';
-        element.style.fontFamily = 'Arial, sans-serif';
-        element.style.backgroundColor = 'white';
-        element.style.color = '#333';
-        element.style.maxWidth = '800px';
-        element.style.margin = '0 auto';
-        element.innerHTML = `
-            <div style="text-align: center; margin-bottom: 30px;">
-                <img src="${photoUrl}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #1f4f5e;" onerror="this.src='${getDefaultAvatar(student.name)}'">
-                <h1 style="margin-top: 15px; color: #1f4f5e;">${student.name}</h1>
-                <p style="font-size: 16px;"><strong>Class:</strong> ${student.className} | <strong>Roll Number:</strong> ${student.roll}</p>
-            </div>
-            
-            <div style="margin-bottom: 25px;">
-                <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Personal Information</h2>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr><td style="padding: 8px 0;"><strong>Father's Name:</strong></td><td>${student.fatherName || 'Not specified'}</td></tr>
-                    <tr><td style="padding: 8px 0;"><strong>Mobile:</strong></td><td>${student.mobile || 'Not specified'}</td></tr>
-                    <tr><td style="padding: 8px 0;"><strong>Age:</strong></td><td>${student.age || 'Not specified'}</td></tr>
-                    <tr><td style="padding: 8px 0;"><strong>Address:</strong></td><td>${student.address || 'Not specified'}</td></tr>
-                </table>
-            </div>
-            
-            <div style="margin-bottom: 25px;">
-                <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Fee Summary</h2>
-                <table style="width: 100%; border-collapse: collapse; background-color: #f9f9f9;">
-                    <tr><td style="padding: 12px;"><strong>Total Paid:</strong></td><td style="padding: 12px; text-align: right;"><strong style="color: #10b981;">₹${totalPaid}</strong></td></tr>
-                    <tr><td style="padding: 12px;"><strong>Total Fee:</strong></td><td style="padding: 12px; text-align: right;"><strong>₹${totalFee}</strong></td></tr>
-                    <tr><td style="padding: 12px;"><strong>Balance:</strong></td><td style="padding: 12px; text-align: right;"><strong style="color: ${balance > 0 ? '#dc2626' : '#10b981'};">₹${balance}</strong></td></tr>
-                </table>
-            </div>
-            
-            ${previousYearBill > 0 ? `
-                <div style="margin-bottom: 25px;">
-                    <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Previous Year Bill</h2>
-                    <table style="width: 100%;">
-                        <tr><td style="padding: 8px 0;"><strong>Previous Year's Month Bill:</strong></td><td style="text-align: right;">₹${previousYearBill}</td></tr>
-                    </table>
-                </div>
-            ` : ''}
-            
-            <div style="margin-bottom: 25px;">
-                <h2 style="color: #1f4f5e; border-bottom: 2px solid #1f4f5e; padding-bottom: 8px; margin-bottom: 15px;">Current Year Fees (${CURRENT_YEAR}-${NEXT_YEAR})</h2>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background-color: #1f4f5e; color: white;">
-                            <th style="padding: 10px; text-align: left; border: 1px solid #1f4f5e;">Month</th>
-                            <th style="padding: 10px; text-align: right; border: 1px solid #1f4f5e;">Amount</th>
-                            <th style="padding: 10px; text-align: center; border: 1px solid #1f4f5e;">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-                <div style="text-align: right; margin-top: 15px; padding-top: 10px; border-top: 2px solid #ddd;">
-                    <strong>Total Current Year Fee: ₹${totalFee}</strong>
-                </div>
-            </div>
-            
-            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 11px;">
-                <p>Generated by KVM Classes Student Management System</p>
-                <p>${new Date().toLocaleString()}</p>
-            </div>
-        `;
+        // Total
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Total Current Year Fee: ₹${totalFee}`, 140, y);
         
-        const opt = {
-            margin: [0.5, 0.5, 0.5, 0.5],
-            filename: `${student.name}_profile.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, letterRendering: true, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        };
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+                `Generated by KVM Classes - ${new Date().toLocaleString()}`,
+                105,
+                doc.internal.pageSize.height - 10,
+                { align: 'center' }
+            );
+        }
         
-        await html2pdf().set(opt).from(element).save();
+        // Save PDF
+        doc.save(`${student.name}_profile.pdf`);
         hideLoadingScreen();
-        
-        // Show success message
         alert("PDF downloaded successfully!");
         
     } catch (error) {
         console.error("PDF generation error:", error);
-        alert("Error generating PDF. Please try again.");
+        alert("Error generating PDF: " + error.message);
         hideLoadingScreen();
     }
 };
@@ -351,7 +415,7 @@ function displayFullStudentPage(student) {
                 <button class="button button-secondary" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="button button-warning" onclick="editStudent('${student.id}')"><i class="fas fa-edit"></i> Edit</button>
                 <button class="button button-danger" onclick="deleteStudent('${student.id}', '${student.name.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> Delete</button>
-                <button class="button button-primary" onclick="downloadAndSharePDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-download"></i> Download PDF</button>
+                <button class="button button-primary" onclick="downloadStudentPDF(${JSON.stringify(student).replace(/</g, '\\u003c')})"><i class="fas fa-download"></i> Download PDF</button>
             </div>
             <div class="student-profile-card" style="background: var(--color-surface); border-radius: 12px; overflow: hidden;">
                 <div class="student-header-full" style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); color: white; padding: 24px; text-align: center;">
@@ -406,7 +470,8 @@ function displayFullStudentPage(student) {
 }
 
 async function loadClassPage(className) {
-    showCustomLoading(`Loading Class ${className}...`);
+    // Fixed: Removed extra "Class" word
+    showCustomLoading(`Loading ${className}...`);
     editingClass = className;
     classButtons.style.display = 'none';
     await loadStudents(className);
@@ -440,7 +505,6 @@ onAuthStateChanged(auth, async (user) => {
         console.log("✅ User authenticated:", user.email);
         isAdminAuthenticated = true;
         
-        // Check if we're loading a shared view from URL
         const hasSharedView = loadStudentFromURL();
         
         if (!hasSharedView) {
@@ -452,7 +516,6 @@ onAuthStateChanged(auth, async (user) => {
         currentUser = null;
         isAdminAuthenticated = false;
         
-        // Check if we're loading a shared view from URL (public view)
         const hasSharedView = loadStudentFromURL();
         
         if (!hasSharedView) {
@@ -828,7 +891,7 @@ function populateEditForm(student) {
             const amountInput = document.getElementById(month + 'Amount');
             const paidCheckbox = document.getElementById(month + 'Paid');
             if (amountInput) amountInput.value = monthlyFees[month]?.amount || 0;
-            if (paidCheckbox) paidCheckbox.checked = monthlyFees[month]?.paid !== false; // Default true
+            if (paidCheckbox) paidCheckbox.checked = monthlyFees[month]?.paid !== false;
         }
         console.log("Edit form populated successfully");
     } catch (error) {
@@ -931,13 +994,21 @@ window.deleteStudent = async function(studentId, studentName) {
 };
 
 // ======================
+// ADD AUTO-TABLE PLUGIN FOR jspdf
+// ======================
+
+// Load auto-table plugin
+const script = document.createElement('script');
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js';
+script.onload = () => console.log('AutoTable loaded');
+document.head.appendChild(script);
+
+// ======================
 // INITIALIZE APP
 // ======================
 
-// Show loading screen initially
 showCustomLoading("Initializing KVM Classes...");
 
-// Make sure loading screen hides after 3 seconds even if Firebase is slow
 setTimeout(() => {
     if (authSection.style.display !== 'flex' && mainApp.style.display !== 'block') {
         showAuthSection();
