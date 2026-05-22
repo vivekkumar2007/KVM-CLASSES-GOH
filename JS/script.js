@@ -116,7 +116,7 @@ function calculateFeeTotals(monthlyFees) {
 }
 
 // ======================
-// RECEIPT PDF GENERATION - USING WINDOW PRINT (100% WORKING)
+// RECEIPT / PRINT FUNCTION
 // ======================
 
 window.downloadStudentPDF = function(student) {
@@ -130,7 +130,6 @@ window.downloadStudentPDF = function(student) {
             const totalPaid = monthlyPaid + previousYearBill;
             const balance = totalFee - totalPaid;
             
-            // Build fee table rows
             let feeRows = '';
             for (let i = 0; i < MONTHS.length; i++) {
                 const f = monthlyFees[MONTHS[i]] || { amount: 0, paid: true };
@@ -146,12 +145,8 @@ window.downloadStudentPDF = function(student) {
                     `;
                 }
             }
+            if (!feeRows) feeRows = '<tr><td colspan="3" style="padding: 20px; text-align: center;">No fees recorded</td></tr>';
             
-            if (!feeRows) {
-                feeRows = '<tr><td colspan="3" style="padding: 20px; text-align: center;">No fees recorded</td></tr>';
-            }
-            
-            // Create receipt HTML
             const receiptHTML = `
 <!DOCTYPE html>
 <html>
@@ -159,11 +154,7 @@ window.downloadStudentPDF = function(student) {
     <meta charset="UTF-8">
     <title>Fee Receipt - ${student.name}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
             background: #f0f2f5;
@@ -187,28 +178,16 @@ window.downloadStudentPDF = function(student) {
             padding: 30px;
             text-align: center;
         }
-        .receipt-header h1 {
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
-        .receipt-header p {
-            opacity: 0.9;
-            font-size: 14px;
-        }
-        .receipt-body {
-            padding: 30px;
-        }
+        .receipt-header h1 { font-size: 28px; margin-bottom: 5px; }
+        .receipt-header p { opacity: 0.9; font-size: 14px; }
+        .receipt-body { padding: 30px; }
         .student-info {
             background: #f8f9fa;
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 25px;
         }
-        .student-info h3 {
-            color: #1f4f5e;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
+        .student-info h3 { color: #1f4f5e; margin-bottom: 15px; font-size: 18px; }
         .info-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -270,7 +249,6 @@ window.downloadStudentPDF = function(student) {
             color: white;
             padding: 12px;
             text-align: left;
-            font-weight: 600;
         }
         .fee-table td {
             padding: 10px;
@@ -313,21 +291,11 @@ window.downloadStudentPDF = function(student) {
             cursor: pointer;
             text-align: center;
         }
-        .print-btn:hover {
-            background: #0d2f3a;
-        }
+        .print-btn:hover { background: #0d2f3a; }
         @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
-            .print-btn {
-                display: none;
-            }
-            .receipt {
-                box-shadow: none;
-                border-radius: 0;
-            }
+            body { background: white; padding: 0; }
+            .print-btn { display: none; }
+            .receipt { box-shadow: none; border-radius: 0; }
         }
     </style>
 </head>
@@ -338,7 +306,6 @@ window.downloadStudentPDF = function(student) {
             <p>Goh Aurangabad - Student Management System</p>
             <p>Fee Receipt</p>
         </div>
-        
         <div class="receipt-body">
             <div class="student-info">
                 <h3>📋 STUDENT INFORMATION</h3>
@@ -351,77 +318,33 @@ window.downloadStudentPDF = function(student) {
                     <div class="info-item"><span class="info-label">Address:</span><span class="info-value">${escapeHtml(student.address) || 'Not specified'}</span></div>
                 </div>
             </div>
-            
             <div class="fee-summary">
                 <div class="summary-title">💰 FEE SUMMARY</div>
                 <div class="summary-grid">
-                    <div class="summary-card">
-                        <span class="summary-label">Total Paid</span>
-                        <span class="summary-amount amount-paid">₹${totalPaid}</span>
-                    </div>
-                    <div class="summary-card">
-                        <span class="summary-label">Total Fee</span>
-                        <span class="summary-amount">₹${totalFee}</span>
-                    </div>
-                    <div class="summary-card">
-                        <span class="summary-label">Balance</span>
-                        <span class="summary-amount ${balance > 0 ? 'amount-due' : 'amount-paid'}">₹${balance}</span>
-                    </div>
+                    <div class="summary-card"><span class="summary-label">Total Paid</span><span class="summary-amount amount-paid">₹${totalPaid}</span></div>
+                    <div class="summary-card"><span class="summary-label">Total Fee</span><span class="summary-amount">₹${totalFee}</span></div>
+                    <div class="summary-card"><span class="summary-label">Balance</span><span class="summary-amount ${balance > 0 ? 'amount-due' : 'amount-paid'}">₹${balance}</span></div>
                 </div>
             </div>
-            
-            ${previousYearBill > 0 ? `
-            <div class="previous-bill">
-                <span>📅 Previous Year Bill</span>
-                <strong>₹${previousYearBill}</strong>
-            </div>
-            ` : ''}
-            
+            ${previousYearBill > 0 ? `<div class="previous-bill"><span>📅 Previous Year Bill</span><strong>₹${previousYearBill}</strong></div>` : ''}
             <h3 style="margin: 20px 0 10px; color: #1f4f5e;">📆 MONTHLY FEE BREAKDOWN (${CURRENT_YEAR}-${NEXT_YEAR})</h3>
-            <table class="fee-table">
-                <thead>
-                    <tr>
-                        <th>Month</th>
-                        <th style="text-align: right;">Amount</th>
-                        <th style="text-align: center;">Status</th>
-                    </tr>
-                </thead>
-                <tbody>${feeRows}</tbody>
-            </table>
-            
-            <div class="total-section">
-                Total Current Year Fee: ₹${totalFee}
-            </div>
+            <table class="fee-table"><thead><tr><th>Month</th><th style="text-align: right;">Amount</th><th style="text-align: center;">Status</th></tr></thead><tbody>${feeRows}</tbody></table>
+            <div class="total-section">Total Current Year Fee: ₹${totalFee}</div>
         </div>
-        
         <div class="receipt-footer">
             <p>This is a computer generated receipt | Valid without signature</p>
             <p>Generated on: ${new Date().toLocaleString()}</p>
         </div>
-        
-        <button class="print-btn" onclick="window.print(); setTimeout(() => window.close(), 1000);">
-            🖨️ Print / Save as PDF
-        </button>
+        <button class="print-btn" onclick="window.print(); setTimeout(() => window.close(), 1000);">🖨️ Print / Save as PDF</button>
     </div>
-    
-    <script>
-        // Auto-trigger print dialog after 500ms
-        setTimeout(function() {
-            window.print();
-            setTimeout(function() { window.close(); }, 1000);
-        }, 500);
-    </script>
+    <script>setTimeout(function() { window.print(); setTimeout(function() { window.close(); }, 1000); }, 500);</script>
 </body>
-</html>
-            `;
+</html>`;
             
             hideLoadingScreen();
-            
-            // Open print window
             const printWindow = window.open('', '_blank');
             printWindow.document.write(receiptHTML);
             printWindow.document.close();
-            
         } catch (error) {
             console.error("Error:", error);
             hideLoadingScreen();
@@ -437,8 +360,6 @@ function escapeHtml(str) {
         if (m === '<') return '&lt;';
         if (m === '>') return '&gt;';
         return m;
-    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-        return c;
     });
 }
 
@@ -490,6 +411,17 @@ async function loadSingleStudentPage(studentId) {
 }
 
 function displayFullStudentPage(student) {
+    // 🔹 MOBILE FULL-SCREEN FIX (only JS, no CSS change)
+    if (window.innerWidth <= 768) {
+        // Make student list container full-screen overlay
+        const container = document.querySelector('.content-wrapper');
+        const studentSection = document.querySelector('.student-section');
+        if (container) container.style.minHeight = '100vh';
+        if (studentSection) studentSection.style.minHeight = '100vh';
+        // Scroll to top
+        window.scrollTo(0, 0);
+    }
+
     const monthlyFees = normalizeMonthlyFees(student.monthlyFees);
     const previousYearBill = student.previousYearBill || 0;
     const { totalFee, totalPaid: monthlyPaid } = calculateFeeTotals(monthlyFees);
