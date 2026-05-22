@@ -230,7 +230,6 @@ function loadStudentFromURL() {
 }
 
 async function loadSingleStudentPage(studentId) {
-    showLoadingScreen();
     try {
         const studentRef = doc(db, "students", studentId);
         const studentSnap = await getDoc(studentRef);
@@ -344,7 +343,6 @@ function displayFullStudentPage(student) {
 }
 
 async function loadClassPage(className) {
-    showLoadingScreen();
     editingClass = className;
     classButtons.style.display = 'none';
     await loadStudents(className);
@@ -370,25 +368,36 @@ function showErrorPage(message) {
 // ======================
 
 onAuthStateChanged(auth, async (user) => {
+    console.log("Auth state changed:", user ? "User logged in" : "No user");
+    
     if (user) {
         currentUser = user;
         console.log("✅ User authenticated:", user.email);
         isAdminAuthenticated = true;
+        
+        // Check if we're loading a shared view from URL
         const hasSharedView = loadStudentFromURL();
+        
         if (!hasSharedView) {
             showMainApp();
             renderClasses();
         }
-        hideLoadingScreen();
     } else {
         currentUser = null;
         isAdminAuthenticated = false;
+        
+        // Check if we're loading a shared view from URL (public view)
         const hasSharedView = loadStudentFromURL();
+        
         if (!hasSharedView) {
             showAuthSection();
         }
-        hideLoadingScreen();
     }
+    
+    // Hide loading screen after everything is done
+    setTimeout(() => {
+        hideLoadingScreen();
+    }, 500);
 });
 
 function hideLoadingScreen() {
@@ -790,3 +799,105 @@ async function handleFormSubmit(e) {
         alert("Please authenticate first.");
         return;
     }
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    
+    try {
+        const className = document.getElementById('className').value;
+        const name = document.getElementById('studentName').value.trim();
+        const fatherName = document.getElementById('fatherName').value.trim();
+        const mobile = document.getElementById('mobile').value.trim();
+        const roll = parseInt(document.getElementById('roll').value) || 0;
+        const age = parseInt(document.getElementById('age').value) || 0;
+        const address = document.getElementById('address').value.trim();
+        const photo = document.getElementById('photo').value.trim();
+        const previousYearBill = parseInt(document.getElementById('previousYearBill').value) || 0;
+        const previousDues = parseInt(document.getElementById('previousDues').value) || 0;
+        
+        if (!className || !name || !roll) {
+            alert("Please fill in all required fields (Class, Name, Roll).");
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            return;
+        }
+        
+        const monthlyFees = {};
+        for (const month of MONTHS) {
+            const amount = parseInt(document.getElementById(month + 'Amount').value) || 0;
+            const paid = document.getElementById(month + 'Paid').checked;
+            monthlyFees[month] = { amount, paid };
+        }
+        
+        const studentData = {
+            name, fatherName, mobile, roll, age, address, photo,
+            monthlyFees, previousYearBill, previousDues,
+            className: className,
+            updatedAt: serverTimestamp(),
+            updatedBy: currentUser.uid
+        };
+        
+        if (editingStudentId && currentForm === 'edit') {
+            const studentRef = doc(db, "students", editingStudentId);
+            await updateDoc(studentRef, studentData);
+            alert("Student updated successfully!");
+        } else {
+            studentData.createdAt = serverTimestamp();
+            studentData.createdBy = currentUser.uid;
+            const studentsRef = collection(db, "students");
+            await addDoc(studentsRef, studentData);
+            alert("Student added successfully!");
+        }
+        
+        hideAddStudentForm();
+        
+        if (editingClass && className === editingClass) {
+            loadStudents(editingClass);
+        } else if (className) {
+            editingClass = className;
+            loadStudents(className);
+        } else {
+            renderClasses();
+        }
+        
+    } catch (error) {
+        console.error("Error saving student:", error);
+        alert("Error saving student: " + error.message);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+}
+
+window.deleteStudent = async function(studentId, studentName) {
+    if (!confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone.`)) {
+        return;
+    }
+    try {
+        const studentRef = doc(db, "students", studentId);
+        await deleteDoc(studentRef);
+        alert(`${studentName} has been deleted successfully.`);
+        if (editingClass) {
+            loadStudents(editingClass);
+        }
+    } catch (error) {
+        console.error("Error deleting student:", error);
+        alert("Error deleting student: " + error.message);
+    }
+};
+
+// ======================
+// INITIALIZE APP
+// ======================
+
+// Show loading screen initially
+showLoadingScreen();
+
+// Make sure loading screen hides after 3 seconds even if Firebase is slow
+setTimeout(() => {
+    hideLoadingScreen();
+    if (authSection.style.display !== 'flex' && mainApp.style.display !== 'block') {
+        showAuthSection();
+    }
+}, 3000);
