@@ -1805,6 +1805,75 @@ select.form-control:focus {
     line-height: 1.4;
 }
 
+/* Mobile fix - no horizontal scroll */
+@media (max-width: 768px) {
+    body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .container,
+    .content-wrapper,
+    .student-section,
+    .form-container,
+    .student-profile-card,
+    .full-student-page {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    /* Fix for grids that cause overflow */
+    .info-grid,
+    .fee-summary-full > div > div,
+    .summary-grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Make all images responsive */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* Fix buttons wrapping */
+    .page-header {
+        flex-direction: column !important;
+    }
+    
+    .page-header button {
+        width: 100% !important;
+    }
+    
+    /* Fee items stack properly */
+    .fee-item {
+        flex-direction: column !important;
+        text-align: center;
+        gap: 5px;
+    }
+    
+    /* Monthly fees grid single column */
+    .monthly-fees,
+    .monthly-fee-grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Reduce padding on mobile */
+    .student-profile-card > div:last-child {
+        padding: 16px !important;
+    }
+    
+    /* Make headers smaller */
+    .student-header-full h2 {
+        font-size: 18px !important;
+    }
+    
+    .student-header-full p {
+        font-size: 12px !important;
+    }
+}
+
 /* Fix for edit mode */
 #addStudentForm h2 i {
     margin-right: 10px;
